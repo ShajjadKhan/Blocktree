@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockTree - Live Demo</title>
+    <!-- Panzoom Library -->
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <!-- Linking our new CSS file -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="stats-panel">
+        <div class="stat-box">Total Users: <span class="stat-value" id="total-users">3</span></div>
+        <div class="stat-box"><span class="live-dot"></span>Live Visitors: <span class="stat-value" id="live-visitors">12</span></div>
+    </div>
+    <div id="leaderboard"><h3>🏆 Top Referrers</h3><div id="leader-list">Loading...</div></div>
+    <button id="add-btn">+ Join Grid</button>
+    <div id="overlay"></div>
+    <div id="modal">
+        <h2>Add Node</h2>
+        <div class="input-group"><label>Your Name/Brand:</label><input type="text" id="node-name" placeholder="Enter name"></div>
+        <div class="input-group"><label>Short Text/Tagline:</label><input type="text" id="node-text" placeholder="Max 30 chars"></div>
+        <div class="input-group"><label>Profile Image:</label><input type="file" id="node-image" accept="image/*"></div>
+        <div class="btn-group"><button id="cancel-btn">Cancel</button><button id="submit-btn">Submit Data</button></div>
+    </div>
+    <div id="canvas-container">
+        <div id="tree-canvas">
+            <svg id="svg-canvas" width="10000" height="10000" style="position:absolute; top:0; left:0; z-index: 1;">
+                <path class="circuit-line" d="M 2000 2000 V 2080 H 1775 V 2150" />
+                <path class="circuit-line" d="M 2000 2000 V 2080 H 2225 V 2150" />
+            </svg>
+            <div class="node" style="top: 1900px; left: 1925px; border-color: gold; box-shadow: 0 0 15px gold;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
+                <h3 style="color: gold;">Admin</h3><p>Infinity Grid Core</p>
+            </div>
+            <div class="node" style="top: 2150px; left: 1700px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
+                <h3>User 1</h3><p>First connected user.</p>
+            </div>
+            <div class="node" style="top: 2150px; left: 2150px;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
+                <h3>User 2</h3><p>Second connected user.</p>
+            </div>
+        </div>
+    </div>
+    <!-- Linking our new JS file -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
