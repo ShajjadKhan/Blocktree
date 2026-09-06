@@ -4,9 +4,8 @@ const canvasElem = document.getElementById("tree-canvas");
 const panzoom = Panzoom(canvasElem, {
     maxScale: 3.5,
     minScale: 0.08,
-    startScale: 0.75,
+    startScale: 0.85,
     canvas: true,
-    contain: 'outside',
     cursor: 'grab'
 });
 
@@ -83,12 +82,17 @@ function showToast(message, isError = false) {
 }
 
 // Camera Navigation
-function panToCoordinate(targetX, targetY, scale = 1.0) {
+function panToCoordinate(targetX, targetY, scale = 0.85) {
     const container = document.getElementById('canvas-container');
-    const viewW = container.clientWidth;
-    const viewH = container.clientHeight;
-    const panX = (viewW / 2) - (targetX * scale);
-    const panY = (viewH / 2) - (targetY * scale);
+    const viewW = container.clientWidth || window.innerWidth;
+    const viewH = container.clientHeight || window.innerHeight;
+    const canvasW = canvasElem.offsetWidth || 8000;
+    const canvasH = canvasElem.offsetHeight || 8000;
+    
+    // Exact Panzoom translation to place (targetX, targetY) at viewport center
+    const panX = (viewW / (2 * scale)) + (canvasW / 2) * (1 - 1 / scale) - targetX;
+    const panY = (viewH / (2 * scale)) + (canvasH / 2) * (1 - 1 / scale) - targetY;
+    
     panzoom.zoom(scale, { animate: true });
     panzoom.pan(panX, panY, { animate: true });
 }
@@ -97,7 +101,7 @@ function focusNode(nodeId) {
     const node = nodeMap[nodeId];
     if (node) {
         playSound('click');
-        panToCoordinate(node.x + 75, node.y + 60, 1.15);
+        panToCoordinate(node.x + 77.5, node.y + 60, 1.15);
         const elem = document.querySelector(`.node[data-id="${nodeId}"]`);
         if (elem) {
             elem.style.transform = 'translateY(-6px) scale(1.12)';
@@ -338,7 +342,7 @@ async function loadMatrix(autoCenter = false) {
         
         if (autoCenter && currentNodes.length > 0) {
             const root = currentNodes[0];
-            panToCoordinate(root.x + 75, root.y + 120, 0.80);
+            panToCoordinate(root.x + 77.5, root.y + 60, 0.85);
         }
         
     } catch (err) {
@@ -397,7 +401,10 @@ document.getElementById('ctrl-zoom-out').addEventListener('click', () => {
 document.getElementById('ctrl-reset').addEventListener('click', () => {
     playSound('click');
     if (currentNodes.length > 0) {
-        panToCoordinate(currentNodes[0].x + 75, currentNodes[0].y + 120, 0.80);
+        const root = currentNodes[0];
+        panToCoordinate(root.x + 77.5, root.y + 60, 0.85);
+    } else {
+        panToCoordinate(3000, 200, 0.85);
     }
 });
 

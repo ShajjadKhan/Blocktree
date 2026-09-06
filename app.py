@@ -55,7 +55,7 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))''',
             ('Nexus-Core', 'BlockTree Genesis Matrix', 
              'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
-             None, None, '127.0.0.1', 5000, 300, admin_ref, 0))
+             None, None, '127.0.0.1', 3000, 150, admin_ref, 0))
     else:
         # If root node exists but missing ref_code or created_at
         c.execute("SELECT id, ref_code, created_at FROM nodes WHERE parent_id IS NULL LIMIT 1")
@@ -74,30 +74,23 @@ init_db()
 def calculate_node_coordinates(c, parent_id, child_index):
     """
     Calculates intelligent, collision-free (x, y) coordinates for a 1x5 matrix child.
-    Prevents any overlap across deep tree generations using dynamic level spacing
-    and horizontal collision detection.
+    Guarantees positive, well-spaced coordinates that never overlap or escape canvas.
     """
-    c.execute("SELECT x, y FROM nodes WHERE id = ?", (parent_id,))
+    c.execute("SELECT x, y, parent_id FROM nodes WHERE id = ?", (parent_id,))
     parent_row = c.fetchone()
     if not parent_row:
-        return 5000, 600
+        return 3000, 450
         
-    px, py = parent_row[0], parent_row[1]
-    depth = max(1, (py - 300) // 320 + 1)
-    ny = py + 320
+    px, py, grand_parent_id = parent_row[0], parent_row[1], parent_row[2]
+    ny = py + 300
     
-    # Dynamic spacing according to tree depth
-    if depth == 1:
-        spacing = 900
-    elif depth == 2:
-        spacing = 260
-    elif depth == 3:
-        spacing = 200
+    # If parent is root (grand_parent_id is None): 5 wide branches
+    if grand_parent_id is None or parent_id == 1:
+        spacing = 750
     else:
         spacing = 180
         
-    # Standard 1x5 horizontal spread: child_index in [0, 1, 2, 3, 4] -> offsets [-2, -1, 0, 1, 2]
-    offset_multiplier = child_index - 2
+    offset_multiplier = child_index - 2  # [-2, -1, 0, 1, 2]
     ideal_x = px + (offset_multiplier * spacing)
     
     # Check for horizontal collisions with any other nodes at the same Y level
@@ -106,11 +99,12 @@ def calculate_node_coordinates(c, parent_id, child_index):
     
     candidate_x = ideal_x
     step = 0
-    while any(abs(candidate_x - ex) < 170 for ex in existing_xs):
+    while any(abs(candidate_x - ex) < 170 for ex in existing_xs) or candidate_x < 200:
         step += 1
-        # Alternate testing left and right
         direction = 1 if step % 2 == 1 else -1
-        candidate_x = ideal_x + (direction * (step // 2 + 1) * 70)
+        candidate_x = ideal_x + (direction * (step // 2 + 1) * 60)
+        if candidate_x < 200:
+            candidate_x = 200 + step * 60
         
     return candidate_x, ny
 
@@ -231,7 +225,6 @@ def handle_nodes():
             avatar_bg = secrets.choice(['2563eb', '7c3aed', '059669', 'd97706', 'dc2626'])
             image = f"https://api.dicebear.com/7.x/bottts/svg?seed={name}&backgroundColor={avatar_bg}"
         else:
-            # Prevent excessive payload (>3MB base64)
             if len(raw_image) > 3 * 1024 * 1024:
                 conn.close()
                 return jsonify({"error": "Uploaded image is too large (Max 2MB)."}), 400
@@ -280,7 +273,7 @@ def handle_nodes():
     
     nodes = []
     for r in raw_nodes:
-        depth = max(0, (r['y'] - 300) // 320)
+        depth = max(0, (r['y'] - 150) // 300)
         created_str = r['created_at'] or datetime.now().strftime("%Y-%m-%d %H:%M")
         nodes.append({
             "id": r['id'],

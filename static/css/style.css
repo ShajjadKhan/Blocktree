@@ -50,10 +50,9 @@ body {
 }
 
 #tree-canvas {
-    width: 12000px;
-    height: 12000px;
+    width: 8000px;
+    height: 8000px;
     position: absolute;
-    transform-origin: 0 0;
 }
 
 /* Glassmorphic HUD Panels */
