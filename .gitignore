@@ -4,3 +4,4 @@ __pycache__/
 grid_data.db
 *.log
 static/uploads/*
+backups/

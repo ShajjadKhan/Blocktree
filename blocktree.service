@@ -1,0 +1,16 @@
+[Unit]
+Description=BlockTree Spatial Newsletter Matrix Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/tserver/blocktree_project
+ExecStart=/home/tserver/blocktree_project/venv/bin/python /home/tserver/blocktree_project/app.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/tserver/blocktree_project/server.log
+StandardError=append:/home/tserver/blocktree_project/server.log
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
