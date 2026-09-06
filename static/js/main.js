@@ -2402,6 +2402,7 @@ function setViewMode(mode) {
     const btnStream = document.getElementById('btn-view-stream');
     const navDeck = document.getElementById('spatial-nav-deck');
     const addBtn = document.getElementById('add-btn');
+    const leaderboard = document.getElementById('leaderboard');
 
     if (mode === 'stream') {
         if (canvasContainer) canvasContainer.classList.add('d-none');
@@ -2409,6 +2410,7 @@ function setViewMode(mode) {
         if (btnMatrix) btnMatrix.classList.remove('active');
         if (btnStream) btnStream.classList.add('active');
         if (navDeck) navDeck.classList.add('d-none');
+        if (leaderboard) leaderboard.classList.add('d-none');
         renderStreamFeed();
     } else {
         if (streamFeedView) streamFeedView.classList.add('d-none');
@@ -2416,6 +2418,7 @@ function setViewMode(mode) {
         if (btnMatrix) btnMatrix.classList.add('active');
         if (btnStream) btnStream.classList.remove('active');
         if (navDeck) navDeck.classList.remove('d-none');
+        if (leaderboard && window.innerWidth > 768) leaderboard.classList.remove('d-none');
     }
 }
 
@@ -2729,6 +2732,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.cat-filter-btn').forEach(btn => {
         btn.addEventListener('click', () => setCategoryFilter(btn.dataset.cat));
     });
+
+    const scoreboardMinBtn = document.getElementById('scoreboard-min-btn');
+    const leaderboard = document.getElementById('leaderboard');
+    if (scoreboardMinBtn && leaderboard) {
+        scoreboardMinBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('click');
+            const isMin = leaderboard.classList.toggle('minimized');
+            const icon = document.getElementById('scoreboard-min-icon');
+            if (icon) {
+                icon.className = isMin ? 'bi bi-plus-lg' : 'bi bi-dash-lg';
+            }
+        });
+    }
 
     initReaderScrollProgress();
 

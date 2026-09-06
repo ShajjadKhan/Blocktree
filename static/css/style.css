@@ -441,16 +441,45 @@ body.editorial-body {
    ========================================================================== */
 .permanent-scoreboard {
     position: fixed;
-    top: 66px;
+    top: 122px;
     right: 16px;
     width: 245px;
-    max-height: 300px;
+    max-height: 280px;
     padding: 10px 12px;
-    z-index: 105;
+    z-index: 95;
     border: 1px solid rgba(255, 215, 0, 0.35);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 215, 0, 0.12);
     display: flex;
     flex-direction: column;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.permanent-scoreboard.minimized {
+    max-height: 38px;
+    overflow: hidden;
+    padding-bottom: 0;
+}
+
+.permanent-scoreboard.minimized .leader-scroll {
+    display: none !important;
+}
+
+.scoreboard-min-btn {
+    background: transparent;
+    border: none;
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.scoreboard-min-btn:hover {
+    background: rgba(255, 215, 0, 0.15);
+    color: #fff;
 }
 
 .leader-header {
@@ -4274,7 +4303,7 @@ form.d-none,
     top: 68px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 92;
+    z-index: 102;
     display: flex;
     align-items: center;
     gap: 6px;
