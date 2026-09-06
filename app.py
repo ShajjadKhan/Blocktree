@@ -98,18 +98,25 @@ def init_db():
 
 init_db()
 
-def calculate_node_coordinates(c, parent_id):
+CARD_WIDTH = 270
+CARD_HEIGHT = 200
+MIN_DIST_X = 350  # 270px card + 80px clean visual clearance
+MIN_DIST_Y = 270  # card height + gap
+SPACING = 360     # slot spacing between sibling replies
+
+def calculate_node_coordinates(c, parent_id, exclude_node_id=None):
     """
     Calculates collision-free coordinates for spatial branching.
-    - If parent_id is None: Placed along top row (y = 150) as a new main edition pillar.
-    - If parent_id is set: Placed on child row (parent.y + 340) centered beneath parent,
-      symmetrically branching outward with collision avoidance.
+    - If parent_id is None: Placed along top row (y = 150) spaced generously.
+    - If parent_id is set: Placed on child row (parent.y + 300) centered beneath parent,
+      fanning outward symmetrically with full 2D collision avoidance.
     """
     if not parent_id:
         c.execute("SELECT MAX(x) FROM nodes WHERE parent_id IS NULL")
-        max_root_x = c.fetchone()[0]
+        row = c.fetchone()
+        max_root_x = row[0] if row and row[0] is not None else None
         if max_root_x:
-            return max_root_x + 2200, 150
+            return max_root_x + 2400, 150
         return 3000, 150
 
     c.execute("SELECT x, y FROM nodes WHERE id = ?", (parent_id,))
@@ -118,33 +125,78 @@ def calculate_node_coordinates(c, parent_id):
         return 3000, 450
         
     px, py = parent_row[0], parent_row[1]
-    ny = py + 340
-    
-    c.execute("SELECT COUNT(*) FROM nodes WHERE parent_id = ?", (parent_id,))
-    child_count = c.fetchone()[0]
-    
-    offsets = [0, 290, -290, 580, -580, 870, -870, 1160, -1160, 1450, -1450]
-    if child_count < len(offsets):
-        ideal_offset = offsets[child_count]
-    else:
-        direction = 1 if child_count % 2 == 1 else -1
-        ideal_offset = direction * ((child_count + 1) // 2) * 290
-        
-    ideal_x = px + ideal_offset
-    
-    c.execute("SELECT x FROM nodes WHERE y = ? ORDER BY x ASC", (ny,))
-    existing_xs = [r[0] for r in c.fetchall()]
-    
-    candidate_x = ideal_x
-    step = 0
-    while any(abs(candidate_x - ex) < 270 for ex in existing_xs) or candidate_x < 200:
+    ny = py + 300
+
+    # Fetch all nodes in the database for 2D AABB collision detection
+    c.execute("SELECT id, x, y, parent_id FROM nodes")
+    raw_nodes = c.fetchall()
+    all_nodes = [n for n in raw_nodes if exclude_node_id is None or n[0] != exclude_node_id]
+
+    def has_collision(cx, cy):
+        for n in all_nodes:
+            if abs(cx - n[1]) < MIN_DIST_X and abs(cy - n[2]) < MIN_DIST_Y:
+                return True
+        return False
+
+    # Check existing children of this parent
+    children = [n for n in all_nodes if n[3] == parent_id]
+    existing_child_xs = set(n[1] for n in children)
+
+    # Candidate offsets: try outward from parent px symmetrically
+    candidate_offsets = [0]
+    for step in range(1, 50):
+        candidate_offsets.append(step * SPACING)
+        candidate_offsets.append(-step * SPACING)
+
+    for offset in candidate_offsets:
+        cx = px + offset
+        if cx < 200:
+            continue
+        # If this slot is already occupied by a sibling, skip
+        if any(abs(cx - ex) < MIN_DIST_X for ex in existing_child_xs):
+            continue
+        # Check 2D collision against all nodes
+        if not has_collision(cx, ny):
+            return cx, ny
+
+    # Fallback scan
+    step = 1
+    while True:
+        for sign in (1, -1):
+            cx = px + sign * step * SPACING
+            if cx >= 200 and not has_collision(cx, ny):
+                return cx, ny
         step += 1
-        direction = 1 if step % 2 == 1 else -1
-        candidate_x = ideal_x + (direction * ((step + 1) // 2) * 60)
-        if candidate_x < 200:
-            candidate_x = 200 + step * 60
-            
-    return candidate_x, ny
+
+def fix_overlapping_nodes():
+    """Scans and resolves any overlapping nodes in the database."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, parent_id, x, y FROM nodes ORDER BY id ASC")
+    nodes = list(c.fetchall())
+    
+    repositioned = 0
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            n1 = nodes[i]
+            n2 = nodes[j]
+            dx = abs(n1['x'] - n2['x'])
+            dy = abs(n1['y'] - n2['y'])
+            if dx < MIN_DIST_X and dy < MIN_DIST_Y:
+                # Target the later node to reposition
+                target_node = n2 if n2['id'] > n1['id'] else n1
+                nx, ny = calculate_node_coordinates(c, target_node['parent_id'], exclude_node_id=target_node['id'])
+                c.execute("UPDATE nodes SET x = ?, y = ? WHERE id = ?", (nx, ny, target_node['id']))
+                conn.commit()
+                repositioned += 1
+                for idx, item in enumerate(nodes):
+                    if item['id'] == target_node['id']:
+                        nodes[idx] = {'id': target_node['id'], 'parent_id': target_node['parent_id'], 'x': nx, 'y': ny}
+    conn.close()
+    if repositioned > 0:
+        print(f"Repositioned {repositioned} overlapping node(s) successfully.")
+
+fix_overlapping_nodes()
 
 @app.route('/')
 def home():

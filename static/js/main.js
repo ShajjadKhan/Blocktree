@@ -343,6 +343,24 @@ async function loadMatrix(autoCenter = false) {
         }
         nodesContainer.innerHTML = '';
         
+        // 5. Layout Safety Pass: Guarantee zero card collisions on canvas
+        const CARD_MIN_W = 340;
+        const CARD_MIN_H = 260;
+        const placed = [];
+        
+        currentNodes.forEach(node => {
+            let cx = node.x;
+            let cy = node.y;
+            
+            // If another card is occupying this spot, find next open slot to the right
+            while (placed.some(p => Math.abs(p.x - cx) < CARD_MIN_W && Math.abs(p.y - cy) < CARD_MIN_H)) {
+                cx += 360;
+            }
+            node.x = cx;
+            node.y = cy;
+            placed.push({ id: node.id, x: cx, y: cy });
+        });
+
         // Render Nodes
         currentNodes.forEach(node => {
             const card = document.createElement('div');
