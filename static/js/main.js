@@ -3,6 +3,17 @@
 // Spatial Newsletter, Branching Discourse, Verified Authors & Series Writing
 // ==========================================================================
 
+// Global HTML Escaping Utility for Cyber XSS Protection
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 const canvasElem = document.getElementById("tree-canvas");
 const panzoom = Panzoom(canvasElem, {
     maxScale: 3.5,
@@ -2277,6 +2288,10 @@ async function openAdminDashboard() {
     if (adminDashboardModal) {
         adminDashboardModal.classList.remove('d-none');
     }
+    adminData.activeFilter = 'all';
+    adminData.activeTab = 'articles';
+    const sInput = document.getElementById('adm-articles-search');
+    if (sInput) sInput.value = '';
     await loadAdminDashboardData();
 }
 
@@ -2502,7 +2517,13 @@ function renderAdminArticlesTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No articles found matching criteria.</td></tr>';
+        if (adminData.activeFilter === 'revoked') {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-shield-check text-green" style="font-size: 28px; display: block; margin-bottom: 8px;"></i><strong>Zero Inappropriate or Revoked Content</strong><div style="font-size: 11px; margin-top: 4px;">All matrix articles are clean, active, and live for readers.</div></td></tr>';
+        } else if (q) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-search" style="font-size: 24px; display: block; margin-bottom: 6px;"></i>No articles found matching "<strong>${escapeHtml(q)}</strong>"</td></tr>`;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No articles found matching criteria.</td></tr>';
+        }
         return;
     }
 
