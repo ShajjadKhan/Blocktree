@@ -68,6 +68,9 @@
 // Spatial Newsletter, Branching Discourse, Verified Authors & Series Writing
 // ==========================================================================
 
+// Secret Administrative Gateway Obscure Keyword
+const SECRET_ADMIN_SLUG = 'matrix-vault-9921';
+
 // Global HTML Escaping Utility for Cyber XSS Protection
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -3141,8 +3144,7 @@ function optimizeMobileLayout() {
 }
 window.addEventListener('resize', optimizeMobileLayout);
 
-// Auto-check URL query for secret admin slug: matrix-vault-9921
-const SECRET_ADMIN_SLUG = 'matrix-vault-9921';
+// Auto-check URL query for secret admin slug (defined globally at top)
 
 function checkAdminUrlTrigger() {
     const urlParams = new URLSearchParams(window.location.search);
