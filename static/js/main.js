@@ -1,6 +1,6 @@
 // ==========================================================================
 // BLOCKTREE EDITORIAL - Matrix Engine
-// Spatial Newsletter, Branching Discourse, Interactive Reader & Composer
+// Spatial Newsletter, Branching Discourse, Verified Authors & Series Writing
 // ==========================================================================
 
 const canvasElem = document.getElementById("tree-canvas");
@@ -60,7 +60,7 @@ function playSound(type) {
             osc.stop(now + 0.09);
         }
     } catch (e) {
-        // Ignore audio failure
+        // Ignore audio errors
     }
 }
 
@@ -99,7 +99,7 @@ function showToast(message, isError = false) {
     setTimeout(() => { toast.classList.add('d-none'); }, 3500);
 }
 
-// Mathematically Exact Camera Centering
+// Camera Centering Formula
 function panToCoordinate(targetX, targetY, scale = 0.85) {
     const container = document.getElementById('canvas-container');
     const viewW = container.clientWidth || window.innerWidth;
@@ -107,7 +107,6 @@ function panToCoordinate(targetX, targetY, scale = 0.85) {
     const canvasW = canvasElem.offsetWidth || 12000;
     const canvasH = canvasElem.offsetHeight || 12000;
     
-    // Panzoom applies scale(scale) translate(panX, panY) with transform-origin at canvas center
     const panX = (viewW / (2 * scale)) + (canvasW / 2) * (1 - 1 / scale) - targetX;
     const panY = (viewH / (2 * scale)) + (canvasH / 2) * (1 - 1 / scale) - targetY;
     
@@ -115,12 +114,21 @@ function panToCoordinate(targetX, targetY, scale = 0.85) {
     panzoom.pan(panX, panY, { animate: true });
 }
 
+function resetView() {
+    if (currentNodes.length > 0) {
+        focusNode(currentNodes[0].id, 0.80);
+    } else {
+        panToCoordinate(3000, 200, 0.80);
+    }
+}
+
 // Global State
 let currentNodes = [];
 let nodeMap = {};
 let activeReaderNodeId = null;
+let currentAuthor = null; // Verified author state
 
-// Category Badge Helper
+// Category Styling Helpers
 function getCategoryClass(cat) {
     if (!cat) return 'cat-perspective';
     const c = cat.toLowerCase();
@@ -156,8 +164,7 @@ function focusNode(nodeId, scale = 1.05) {
     const node = nodeMap[nodeId];
     if (node) {
         playSound('click');
-        // Card is 265px wide, ~160px tall
-        panToCoordinate(node.x + 132.5, node.y + 80, scale);
+        panToCoordinate(node.x + 135, node.y + 80, scale);
         
         const elem = document.querySelector(`.editorial-card[data-id="${nodeId}"]`);
         if (elem) {
@@ -173,7 +180,43 @@ function focusNode(nodeId, scale = 1.05) {
     }
 }
 
-// Load Matrix
+// ==========================================================================
+// Check & Manage Verified Author Session
+// ==========================================================================
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        
+        const loggedOutGroup = document.getElementById('nav-logged-out');
+        const loggedInGroup = document.getElementById('nav-logged-in');
+        
+        if (data.logged_in && data.author) {
+            currentAuthor = data.author;
+            loggedOutGroup.classList.add('d-none');
+            loggedInGroup.classList.remove('d-none');
+            
+            document.getElementById('nav-user-avatar').src = currentAuthor.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentAuthor.username;
+            document.getElementById('nav-user-name').textContent = currentAuthor.pen_name;
+            
+            // Populate series datalist in composer
+            const datalist = document.getElementById('existing-series-datalist');
+            if (currentAuthor.series && currentAuthor.series.length > 0) {
+                datalist.innerHTML = currentAuthor.series.map(s => `<option value="${s}">`).join('');
+            }
+        } else {
+            currentAuthor = null;
+            loggedOutGroup.classList.remove('d-none');
+            loggedInGroup.classList.add('d-none');
+        }
+    } catch (e) {
+        console.error("Auth check failed:", e);
+    }
+}
+
+// ==========================================================================
+// Load Matrix Data & Render Canvas Cards
+// ==========================================================================
 async function loadMatrix(autoCenter = false) {
     try {
         const res = await fetch('/api/nodes');
@@ -188,19 +231,24 @@ async function loadMatrix(autoCenter = false) {
             document.getElementById('stat-editions').textContent = data.stats.total_editions || 0;
             document.getElementById('stat-replies').textContent = data.stats.total_replies || 0;
             document.getElementById('stat-claps').textContent = data.stats.total_claps || 0;
+            document.getElementById('stat-series').textContent = data.stats.total_series || 0;
         }
         
-        // 2. Populate Trending Stories
+        // 2. Populate Trending Stories Tab
         const trendingList = document.getElementById('trending-list');
         if (data.trending && data.trending.length > 0) {
             let tHtml = '';
             data.trending.forEach((item, i) => {
                 const medal = i === 0 ? '🔥' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `#${i+1}`));
+                let seriesSubtitle = '';
+                if (item.series_title) {
+                    seriesSubtitle = `<span class="text-gold"><i class="bi bi-collection-fill"></i> ${item.series_title}</span> • `;
+                }
                 tHtml += `
                     <div class="trend-row" onclick="openReader(${item.id})" title="Read article & view on tree">
                         <div class="trend-main">
                             <span class="trend-title">${item.title}</span>
-                            <span class="trend-author">${medal} by @${item.name}</span>
+                            <span class="trend-author">${seriesSubtitle}${medal} by @${item.name}</span>
                         </div>
                         <div class="trend-stats">
                             <i class="bi bi-heart-fill text-magenta"></i> ${item.claps}
@@ -212,18 +260,43 @@ async function loadMatrix(autoCenter = false) {
         } else {
             trendingList.innerHTML = '<div class="leader-loading">No stories published yet</div>';
         }
+
+        // 3. Populate Series Tab
+        const seriesList = document.getElementById('series-list');
+        if (data.active_series && data.active_series.length > 0) {
+            let sHtml = '';
+            data.active_series.forEach(s => {
+                sHtml += `
+                    <div class="series-row" onclick="focusNode(${s.first_node_id}); openReader(${s.first_node_id})" title="View Series">
+                        <div class="trend-main">
+                            <span class="trend-title text-gold"><i class="bi bi-collection-fill"></i> ${s.title}</span>
+                            <span class="trend-author">by @${s.author_name}</span>
+                        </div>
+                        <div class="trend-stats">
+                            <span class="badge-cat cat-discussion">${s.parts_count} Parts</span>
+                        </div>
+                    </div>
+                `;
+            });
+            seriesList.innerHTML = sHtml;
+        } else {
+            seriesList.innerHTML = '<div class="leader-loading">No active series yet</div>';
+        }
         
-        // 3. Populate Top Writers
+        // 4. Populate Top Writers Tab
         const authorsList = document.getElementById('authors-list');
         if (data.leaders && data.leaders.length > 0) {
             let aHtml = '';
             data.leaders.forEach((w, i) => {
                 const medal = i === 0 ? '👑' : `#${i+1}`;
                 aHtml += `
-                    <div class="author-row" onclick="focusNode(${w.id})" title="Jump to author on canvas">
+                    <div class="author-row" onclick="openAuthorDrawer(${w.id})" title="View verified author profile">
                         <div class="author-left">
-                            <img src="${w.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + w.name}" class="author-mini-img" alt="">
-                            <span class="author-name-text">${w.name}</span>
+                            <img src="${w.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + w.username}" class="author-mini-img" alt="">
+                            <div class="author-details" style="max-width: 120px;">
+                                <span class="author-name-text">${w.name} <i class="bi bi-patch-check-fill text-cyan" style="font-size: 8px;"></i></span>
+                                <span style="font-size: 8px; color: var(--text-muted);">${w.badge}</span>
+                            </div>
                         </div>
                         <div class="trend-stats">
                             <i class="bi bi-heart-fill text-gold"></i> ${w.total_claps}
@@ -233,10 +306,10 @@ async function loadMatrix(autoCenter = false) {
             });
             authorsList.innerHTML = aHtml;
         } else {
-            authorsList.innerHTML = '<div class="leader-loading">No writers ranked yet</div>';
+            authorsList.innerHTML = '<div class="leader-loading">No verified writers ranked yet</div>';
         }
         
-        // 4. Render Canvas Cards & Connecting Lines
+        // 5. Render Canvas Cards & Connecting Lines
         const svgCanvas = document.getElementById('svg-canvas');
         const existingPaths = svgCanvas.querySelectorAll('.tree-branch-line');
         existingPaths.forEach(p => p.remove());
@@ -260,7 +333,7 @@ async function loadMatrix(autoCenter = false) {
             const catClass = getCategoryClass(node.category);
             const parent = nodeMap[node.parent_id];
             
-            // Lineage badge: who replied to whom!
+            // Lineage badge: who replied to whom
             let replyBadgeHtml = '';
             if (parent) {
                 replyBadgeHtml = `
@@ -270,6 +343,20 @@ async function loadMatrix(autoCenter = false) {
                     </div>
                 `;
             }
+
+            // Series badge: if part of an ongoing series
+            let seriesBadgeHtml = '';
+            if (node.series_title) {
+                seriesBadgeHtml = `
+                    <div class="card-series-tag" title="Part ${node.series_part || 1} of ${node.series_title}">
+                        <i class="bi bi-collection-fill text-gold"></i>
+                        <span>Series: <strong>${node.series_title}</strong> • Part ${node.series_part || 1}</span>
+                    </div>
+                `;
+            }
+
+            // Verified author checkmark
+            const verifiedHtml = node.is_verified_author ? `<i class="bi bi-patch-check-fill text-cyan" title="Verified Author" style="font-size: 10px; margin-left: 2px;"></i>` : '';
             
             card.innerHTML = `
                 <div class="card-top-row">
@@ -280,12 +367,13 @@ async function loadMatrix(autoCenter = false) {
                 <h3 class="card-headline">${node.title}</h3>
                 <p class="card-excerpt">${node.text}</p>
                 
+                ${seriesBadgeHtml}
                 ${replyBadgeHtml}
                 
                 <div class="card-bottom-row">
                     <div class="card-author-info">
                         <img src="${node.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + node.name}" class="card-avatar" alt="">
-                        <span class="card-author-name">${node.name}</span>
+                        <span class="card-author-name">${node.name}${verifiedHtml}</span>
                     </div>
                     
                     <div class="card-actions-quick">
@@ -308,9 +396,9 @@ async function loadMatrix(autoCenter = false) {
             
             // Render Curved Bezier Branch Line (from Parent bottom to Child top)
             if (parent) {
-                const fromX = parent.x + 132.5;
+                const fromX = parent.x + 135;
                 const fromY = parent.y + 165;
-                const toX = node.x + 132.5;
+                const toX = node.x + 135;
                 const toY = node.y;
                 const midY = (fromY + toY) / 2;
                 
@@ -327,7 +415,7 @@ async function loadMatrix(autoCenter = false) {
         // Auto-center on initial load
         if (autoCenter && currentNodes.length > 0) {
             const first = currentNodes[0];
-            panToCoordinate(first.x + 132.5, first.y + 80, 0.80);
+            panToCoordinate(first.x + 135, first.y + 80, 0.80);
         }
         
     } catch (err) {
@@ -366,12 +454,55 @@ async function openReader(nodeId) {
         document.getElementById('reader-author-avatar').src = node.image || `https://api.dicebear.com/7.x/bottts/svg?seed=${node.name}`;
         document.getElementById('reader-date').textContent = node.created_at || 'Recently published';
         
-        document.getElementById('reader-cover-img').src = node.cover_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+        // Verified badge in reader
+        const vBadge = document.getElementById('reader-verified-badge');
+        if (node.is_verified_author) {
+            vBadge.classList.remove('d-none');
+        } else {
+            vBadge.classList.add('d-none');
+        }
+
+        // Author click opens author portfolio
+        document.getElementById('reader-author-click-wrap').onclick = () => {
+            if (node.author_id) {
+                openAuthorDrawer(node.author_id);
+            }
+        };
+        
+        // EXACT ATTACHED COVER PHOTO
+        const coverImg = document.getElementById('reader-cover-img');
+        coverImg.src = node.cover_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
         
         document.getElementById('reader-quick-claps').textContent = node.claps || 0;
         document.getElementById('reader-quick-replies').textContent = node.reply_count || 0;
         document.getElementById('reader-clap-badge').textContent = node.claps || 0;
         
+        // Series Navigation Banner
+        const seriesBanner = document.getElementById('reader-series-banner');
+        if (node.series_title) {
+            document.getElementById('reader-series-name').textContent = node.series_title;
+            document.getElementById('reader-series-part-tag').textContent = `Part ${node.series_part || 1}`;
+            
+            const pillsRow = document.getElementById('reader-series-siblings-pills');
+            if (node.series_siblings && node.series_siblings.length > 0) {
+                let sHtml = '';
+                node.series_siblings.forEach(part => {
+                    const isActive = part.id === node.id ? 'active' : '';
+                    sHtml += `
+                        <button class="series-pill-btn ${isActive}" onclick="openReader(${part.id}); focusNode(${part.id})">
+                            Part ${part.series_part || 1}: ${part.title}
+                        </button>
+                    `;
+                });
+                pillsRow.innerHTML = sHtml;
+            } else {
+                pillsRow.innerHTML = `<span class="text-muted" style="font-size: 10px;">Part ${node.series_part || 1} of ongoing series</span>`;
+            }
+            seriesBanner.classList.remove('d-none');
+        } else {
+            seriesBanner.classList.add('d-none');
+        }
+
         // In Reply To Breadcrumb
         const breadcrumb = document.getElementById('reader-reply-breadcrumb');
         if (node.parent_id && node.parent_title) {
@@ -456,14 +587,12 @@ readerClapBtn.addEventListener('click', async () => {
             document.getElementById('reader-clap-badge').textContent = data.claps;
             document.getElementById('reader-quick-claps').textContent = data.claps;
             
-            // Update nodeMap and canvas card
             if (nodeMap[activeReaderNodeId]) {
                 nodeMap[activeReaderNodeId].claps = data.claps;
                 const card = document.querySelector(`.editorial-card[data-id="${activeReaderNodeId}"] .card-metric-tag`);
                 if (card) card.innerHTML = `<i class="bi bi-heart-fill text-magenta"></i> ${data.claps}`;
             }
             
-            // Visual bounce
             readerClapBtn.style.transform = 'scale(1.15)';
             setTimeout(() => { readerClapBtn.style.transform = ''; }, 200);
         }
@@ -489,13 +618,107 @@ readerShareBtn.addEventListener('click', () => {
 });
 
 // ==========================================================================
-// Article & Branch Reply Composer Modal
+// Article & Branch Reply Composer Modal (Photo Upload & Series)
 // ==========================================================================
 const overlay = document.getElementById('overlay');
 const composerModal = document.getElementById('composer-modal');
 const composerCloseX = document.getElementById('composer-close-x');
 const composerCancelBtn = document.getElementById('composer-cancel-btn');
 const form = document.getElementById('article-form');
+
+// Photo Attachment Elements
+const tabPhotoFile = document.getElementById('tab-photo-file');
+const tabPhotoUrl = document.getElementById('tab-photo-url');
+const photoFileSection = document.getElementById('photo-file-section');
+const photoUrlSection = document.getElementById('photo-url-section');
+const composerFileInput = document.getElementById('composer-file-input');
+const composerUrlInput = document.getElementById('composer-url-input');
+const fileDropZone = document.getElementById('file-drop-zone');
+const photoPreviewWrap = document.getElementById('photo-preview-wrap');
+const composerPreviewImg = document.getElementById('composer-preview-img');
+const previewFilename = document.getElementById('preview-filename');
+const btnRemovePhoto = document.getElementById('btn-remove-photo');
+const formFinalCover = document.getElementById('form-final-cover');
+
+// Photo Tab Toggles
+tabPhotoFile.addEventListener('click', () => {
+    tabPhotoFile.classList.add('active');
+    tabPhotoUrl.classList.remove('active');
+    photoFileSection.classList.remove('d-none');
+    photoUrlSection.classList.add('d-none');
+});
+
+tabPhotoUrl.addEventListener('click', () => {
+    tabPhotoUrl.classList.add('active');
+    tabPhotoFile.classList.remove('active');
+    photoUrlSection.classList.remove('d-none');
+    photoFileSection.classList.add('d-none');
+});
+
+// Photo File Upload Handler
+composerFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Live preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        composerPreviewImg.src = ev.target.result;
+        previewFilename.textContent = file.name;
+        photoPreviewWrap.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
+    
+    // Upload to server
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (res.ok && data.url) {
+            formFinalCover.value = data.url;
+            showToast("Photo attached successfully!");
+        } else {
+            showToast(data.error || "Upload failed", true);
+        }
+    } catch (err) {
+        showToast("Error uploading image file", true);
+    }
+});
+
+// Photo URL Input Handler
+composerUrlInput.addEventListener('input', () => {
+    const url = composerUrlInput.value.trim();
+    if (url) {
+        formFinalCover.value = url;
+        composerPreviewImg.src = url;
+        previewFilename.textContent = url.slice(0, 30) + '...';
+        photoPreviewWrap.classList.remove('d-none');
+    } else {
+        formFinalCover.value = '';
+        photoPreviewWrap.classList.add('d-none');
+    }
+});
+
+btnRemovePhoto.addEventListener('click', () => {
+    composerFileInput.value = '';
+    composerUrlInput.value = '';
+    formFinalCover.value = '';
+    composerPreviewImg.src = '';
+    photoPreviewWrap.classList.add('d-none');
+});
+
+// Series Toggle in Composer
+const formIsSeries = document.getElementById('form-is-series');
+const seriesInputsPanel = document.getElementById('series-inputs-panel');
+
+formIsSeries.addEventListener('change', () => {
+    if (formIsSeries.checked) {
+        seriesInputsPanel.classList.remove('d-none');
+    } else {
+        seriesInputsPanel.classList.add('d-none');
+    }
+});
 
 function openComposer(parentId = null, parentTitle = null, parentAuthor = null) {
     playSound('click');
@@ -505,6 +728,25 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
     const modalTitle = document.getElementById('composer-modal-title');
     const submitText = document.getElementById('composer-submit-text');
     const catSelect = document.getElementById('form-category');
+    
+    // Verified author bar
+    const vBanner = document.getElementById('composer-verified-author-banner');
+    const gBanner = document.getElementById('composer-guest-banner');
+    const authorInput = document.getElementById('form-author');
+    
+    if (currentAuthor) {
+        vBanner.classList.remove('d-none');
+        gBanner.classList.add('d-none');
+        document.getElementById('composer-auth-name').textContent = currentAuthor.pen_name;
+        document.getElementById('composer-auth-badge').textContent = currentAuthor.badge;
+        authorInput.value = currentAuthor.pen_name;
+        authorInput.readOnly = true;
+    } else {
+        vBanner.classList.add('d-none');
+        gBanner.classList.remove('d-none');
+        authorInput.readOnly = false;
+        authorInput.value = '';
+    }
     
     if (parentId) {
         modalTitle.innerHTML = `<i class="bi bi-diagram-3-fill text-cyan"></i> Write Branch Reply`;
@@ -550,9 +792,12 @@ form.addEventListener('submit', async () => {
     const author = document.getElementById('form-author').value.trim();
     const title = document.getElementById('form-title').value.trim();
     const content = document.getElementById('form-content').value.trim();
+    const coverImage = formFinalCover.value.trim();
     
-    const checkedPreset = document.querySelector('input[name="cover-preset"]:checked');
-    const coverImage = checkedPreset ? checkedPreset.value : '';
+    // Series fields
+    const isSeries = formIsSeries.checked;
+    const seriesTitle = isSeries ? document.getElementById('form-series-title').value.trim() : '';
+    const seriesPart = isSeries ? parseInt(document.getElementById('form-series-part').value) || 1 : null;
     
     if (!title || !content) {
         showToast("Please provide both a Title and Article Content!", true);
@@ -566,11 +811,13 @@ form.addEventListener('submit', async () => {
     try {
         const payload = {
             title: title,
-            name: author || "Anonymous Thinker",
+            name: author || (currentAuthor ? currentAuthor.pen_name : "Anonymous Thinker"),
             category: category,
             content: content,
             parent_id: parentId || null,
-            cover_image: coverImage
+            cover_image: coverImage,
+            series_title: seriesTitle,
+            series_part: seriesPart
         };
         
         const res = await fetch('/api/nodes', {
@@ -583,11 +830,11 @@ form.addEventListener('submit', async () => {
         
         if (res.ok && data.status === 'success') {
             playSound('publish');
-            showToast(parentId ? "⚡ Branch Reply published successfully!" : "📰 New Newsletter Edition published!");
+            showToast(parentId ? "⚡ Branch Reply published successfully!" : "📰 Article published to matrix!");
             closeComposer();
             form.reset();
+            btnRemovePhoto.click();
             
-            // Reload matrix and smoothly focus on the new node
             await loadMatrix(false);
             if (data.node) {
                 setTimeout(() => {
@@ -607,18 +854,242 @@ form.addEventListener('submit', async () => {
 });
 
 // ==========================================================================
-// Scoreboard Tabs & Search
+// Verified Author Registration & Login Modals
+// ==========================================================================
+const registerModal = document.getElementById('register-modal');
+const loginModal = document.getElementById('login-modal');
+
+function openRegisterModal() {
+    closeComposer();
+    loginModal.classList.add('d-none');
+    overlay.style.display = 'block';
+    registerModal.classList.remove('d-none');
+}
+
+function closeRegisterModal() {
+    registerModal.classList.add('d-none');
+    overlay.style.display = 'none';
+}
+
+function openLoginModal() {
+    closeComposer();
+    registerModal.classList.add('d-none');
+    overlay.style.display = 'block';
+    loginModal.classList.remove('d-none');
+}
+
+function closeLoginModal() {
+    loginModal.classList.add('d-none');
+    overlay.style.display = 'none';
+}
+
+// Nav Buttons
+document.getElementById('btn-open-register').addEventListener('click', openRegisterModal);
+document.getElementById('btn-open-login').addEventListener('click', openLoginModal);
+document.getElementById('composer-prompt-register').addEventListener('click', (e) => { e.preventDefault(); openRegisterModal(); });
+document.getElementById('composer-prompt-login').addEventListener('click', (e) => { e.preventDefault(); openLoginModal(); });
+document.getElementById('link-to-login').addEventListener('click', (e) => { e.preventDefault(); openLoginModal(); });
+document.getElementById('link-to-register').addEventListener('click', (e) => { e.preventDefault(); openRegisterModal(); });
+
+document.getElementById('register-close-x').addEventListener('click', closeRegisterModal);
+document.getElementById('reg-cancel-btn').addEventListener('click', closeRegisterModal);
+document.getElementById('login-close-x').addEventListener('click', closeLoginModal);
+document.getElementById('login-cancel-btn').addEventListener('click', closeLoginModal);
+
+// Register Form Submit
+document.getElementById('register-form').addEventListener('submit', async () => {
+    const penName = document.getElementById('reg-pen-name').value.trim();
+    const username = document.getElementById('reg-username').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value.trim();
+    const bio = document.getElementById('reg-bio').value.trim();
+    
+    if (!penName || !username || !password) {
+        showToast("Please fill in Pen Name, Username, and Password.", true);
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pen_name: penName, username, email, password, bio })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.status === 'success') {
+            playSound('publish');
+            showToast(`⭐ Welcome, ${data.author.pen_name}! Verified Author ID created.`);
+            closeRegisterModal();
+            await checkAuth();
+            await loadMatrix(false);
+        } else {
+            showToast(data.error || "Registration failed.", true);
+        }
+    } catch (e) {
+        showToast("Network error during registration.", true);
+    }
+});
+
+// Login Form Submit
+document.getElementById('login-form').addEventListener('submit', async () => {
+    const identifier = document.getElementById('login-identifier').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    
+    if (!identifier || !password) {
+        showToast("Please enter your Username/Email and Password.", true);
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.status === 'success') {
+            playSound('click');
+            showToast(`🔑 Logged in as ${data.author.pen_name}!`);
+            closeLoginModal();
+            await checkAuth();
+            await loadMatrix(false);
+        } else {
+            showToast(data.error || "Invalid credentials.", true);
+        }
+    } catch (e) {
+        showToast("Network error during login.", true);
+    }
+});
+
+// Logout
+document.getElementById('btn-logout').addEventListener('click', async () => {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        showToast("Logged out successfully.");
+        await checkAuth();
+        await loadMatrix(false);
+    } catch (e) {
+        console.error("Logout failed:", e);
+    }
+});
+
+// ==========================================================================
+// Author Portfolio & Series Drawer
+// ==========================================================================
+const authorDrawer = document.getElementById('author-portfolio-drawer');
+const authorDrawerCloseBtn = document.getElementById('author-drawer-close-btn');
+
+async function openAuthorDrawer(authorId) {
+    playSound('click');
+    try {
+        const res = await fetch(`/api/authors/${authorId}`);
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || "Author not found", true); return; }
+        
+        const a = data.author;
+        document.getElementById('portfolio-avatar').src = a.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + a.username;
+        document.getElementById('portfolio-name').textContent = a.pen_name;
+        document.getElementById('portfolio-handle').textContent = `@${a.username}`;
+        document.getElementById('portfolio-badge').innerHTML = `<i class="bi bi-patch-check-fill text-cyan"></i> ${a.badge}`;
+        document.getElementById('portfolio-bio').textContent = a.bio || "No bio provided.";
+        document.getElementById('portfolio-total-claps').textContent = a.total_claps;
+        document.getElementById('portfolio-articles-count').textContent = a.article_count;
+        
+        // Render Series
+        const seriesContainer = document.getElementById('portfolio-series-list');
+        const seriesKeys = Object.keys(data.series || {});
+        if (seriesKeys.length === 0) {
+            seriesContainer.innerHTML = '<div class="text-muted" style="font-size: 11px;">No multi-part series created yet.</div>';
+        } else {
+            let sHtml = '';
+            seriesKeys.forEach(st => {
+                const parts = data.series[st];
+                let chipsHtml = '';
+                parts.forEach(p => {
+                    chipsHtml += `
+                        <button class="series-chip" onclick="openReader(${p.id}); focusNode(${p.id})">
+                            Part ${p.series_part || 1}: ${p.title}
+                        </button>
+                    `;
+                });
+                sHtml += `
+                    <div class="portfolio-series-card">
+                        <div class="series-card-title"><i class="bi bi-collection-fill text-gold"></i> ${st} (${parts.length} Parts)</div>
+                        <div class="series-parts-chips">${chipsHtml}</div>
+                    </div>
+                `;
+            });
+            seriesContainer.innerHTML = sHtml;
+        }
+        
+        // Render Standalone Writings
+        const articlesContainer = document.getElementById('portfolio-articles-list');
+        if (!data.standalone_articles || data.standalone_articles.length === 0) {
+            articlesContainer.innerHTML = '<div class="text-muted" style="font-size: 11px;">No standalone writings.</div>';
+        } else {
+            let aHtml = '';
+            data.standalone_articles.forEach(art => {
+                aHtml += `
+                    <div class="branch-reply-card" onclick="openReader(${art.id}); focusNode(${art.id})">
+                        <div class="reply-card-top">
+                            <span class="badge-cat ${getCategoryClass(art.category)}">${art.category}</span>
+                            <span class="text-gold"><i class="bi bi-heart-fill"></i> ${art.claps}</span>
+                        </div>
+                        <h4 class="reply-card-title">${art.title}</h4>
+                        <p class="reply-card-snippet">${art.text}</p>
+                    </div>
+                `;
+            });
+            articlesContainer.innerHTML = aHtml;
+        }
+        
+        authorDrawer.classList.remove('d-none');
+    } catch (e) {
+        console.error("Failed to load author portfolio:", e);
+    }
+}
+
+authorDrawerCloseBtn.addEventListener('click', () => {
+    authorDrawer.classList.add('d-none');
+});
+
+document.getElementById('nav-author-pill').addEventListener('click', () => {
+    if (currentAuthor) openAuthorDrawer(currentAuthor.id);
+});
+
+document.getElementById('btn-my-series').addEventListener('click', () => {
+    if (currentAuthor) openAuthorDrawer(currentAuthor.id);
+});
+
+// ==========================================================================
+// Scoreboard Tabs & Search HUD
 // ==========================================================================
 const tabTrending = document.getElementById('tab-trending');
+const tabSeries = document.getElementById('tab-series');
 const tabAuthors = document.getElementById('tab-authors');
 const trendingList = document.getElementById('trending-list');
+const seriesList = document.getElementById('series-list');
 const authorsList = document.getElementById('authors-list');
 
 tabTrending.addEventListener('click', () => {
     playSound('click');
     tabTrending.classList.add('active');
+    tabSeries.classList.remove('active');
     tabAuthors.classList.remove('active');
     trendingList.classList.remove('d-none');
+    seriesList.classList.add('d-none');
+    authorsList.classList.add('d-none');
+});
+
+tabSeries.addEventListener('click', () => {
+    playSound('click');
+    tabSeries.classList.add('active');
+    tabTrending.classList.remove('active');
+    tabAuthors.classList.remove('active');
+    seriesList.classList.remove('d-none');
+    trendingList.classList.add('d-none');
     authorsList.classList.add('d-none');
 });
 
@@ -626,8 +1097,10 @@ tabAuthors.addEventListener('click', () => {
     playSound('click');
     tabAuthors.classList.add('active');
     tabTrending.classList.remove('active');
+    tabSeries.classList.remove('active');
     authorsList.classList.remove('d-none');
     trendingList.classList.add('d-none');
+    seriesList.classList.add('d-none');
 });
 
 // Search HUD
@@ -639,22 +1112,24 @@ searchInput.addEventListener('input', () => {
     if (!q) { searchDropdown.classList.add('d-none'); return; }
     
     const matches = currentNodes.filter(n => 
-        n.title.toLowerCase().includes(q) || 
-        n.name.toLowerCase().includes(q) ||
-        n.category.toLowerCase().includes(q) ||
-        n.text.toLowerCase().includes(q)
+        (n.title && n.title.toLowerCase().includes(q)) || 
+        (n.name && n.name.toLowerCase().includes(q)) ||
+        (n.category && n.category.toLowerCase().includes(q)) ||
+        (n.series_title && n.series_title.toLowerCase().includes(q)) ||
+        (n.text && n.text.toLowerCase().includes(q))
     ).slice(0, 6);
     
     if (matches.length === 0) {
-        searchDropdown.innerHTML = '<div class="search-item text-muted">No matching articles found</div>';
+        searchDropdown.innerHTML = '<div class="search-item text-muted">No matching articles or series found</div>';
     } else {
         let html = '';
         matches.forEach(m => {
+            const seriesTag = m.series_title ? `<span class="text-gold"><i class="bi bi-collection"></i> ${m.series_title}</span> • ` : '';
             html += `
                 <div class="search-item" onclick="selectSearchNode(${m.id})">
                     <span class="search-item-title">${m.title}</span>
                     <div class="search-item-meta">
-                        <span>by @${m.name}</span>
+                        <span>${seriesTag}by @${m.name}</span>
                         <span class="text-cyan">${m.category}</span>
                     </div>
                 </div>
@@ -686,13 +1161,7 @@ document.getElementById('ctrl-zoom-out').addEventListener('click', () => {
     playSound('click'); panzoom.zoomOut({ animate: true });
 });
 document.getElementById('ctrl-reset').addEventListener('click', () => {
-    playSound('click');
-    if (currentNodes.length > 0) {
-        const root = currentNodes[0];
-        panToCoordinate(root.x + 132.5, root.y + 80, 0.80);
-    } else {
-        panToCoordinate(3000, 200, 0.80);
-    }
+    playSound('click'); resetView();
 });
 
 // Deep Linking Check
@@ -714,13 +1183,17 @@ async function checkDeepLink() {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeComposer();
+        closeRegisterModal();
+        closeLoginModal();
         readerDrawer.classList.add('d-none');
+        authorDrawer.classList.add('d-none');
         activeReaderNodeId = null;
     }
 });
 
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
     await loadMatrix(true);
     await checkDeepLink();
     setInterval(() => { loadMatrix(false); }, 25000);

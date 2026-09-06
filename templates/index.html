@@ -15,7 +15,7 @@
     <!-- Top Navigation & Matrix Telemetry Header -->
     <header id="top-nav" class="hud-glass">
         <div class="nav-left">
-            <div class="brand-badge">
+            <div class="brand-badge" onclick="resetView()" style="cursor: pointer;" title="BlockTree Editorial Home">
                 <i class="bi bi-newspaper brand-icon"></i>
                 <div class="brand-text">
                     <span class="brand-title">BLOCKTREE<span class="brand-dot">.</span>EDITORIAL</span>
@@ -35,14 +35,19 @@
                     <span>Replies:</span>
                     <strong id="stat-replies" class="text-magenta">0</strong>
                 </div>
-                <div class="stat-pill" title="Total Reader Claps & Accolades">
-                    <i class="bi bi-heart-fill text-gold"></i>
+                <div class="stat-pill" title="Multi-Part Author Series">
+                    <i class="bi bi-collection-fill text-gold"></i>
+                    <span>Series:</span>
+                    <strong id="stat-series" class="text-gold">0</strong>
+                </div>
+                <div class="stat-pill" title="Total Reader Claps">
+                    <i class="bi bi-heart-fill text-magenta"></i>
                     <span>Claps:</span>
                     <strong id="stat-claps" class="text-gold">0</strong>
                 </div>
                 <div class="stat-pill live-indicator" title="Active Readers on the Matrix Canvas">
                     <span class="live-dot-green"></span>
-                    <span id="live-readers">18</span> <span class="dim-text">Reading</span>
+                    <span id="live-readers">24</span> <span class="dim-text">Reading</span>
                 </div>
             </div>
         </div>
@@ -51,8 +56,36 @@
             <!-- Search Input -->
             <div class="search-hud" id="search-hud">
                 <i class="bi bi-search search-icon"></i>
-                <input type="text" id="node-search-input" placeholder="Search articles, authors, replies..." autocomplete="off">
+                <input type="text" id="node-search-input" placeholder="Search articles, series, authors..." autocomplete="off">
                 <div id="search-results-dropdown" class="search-dropdown d-none"></div>
+            </div>
+
+            <!-- Author Authentication Pill / Buttons -->
+            <div id="nav-auth-section" class="nav-auth-wrap">
+                <!-- Logged Out State -->
+                <div id="nav-logged-out" class="auth-btn-group">
+                    <button id="btn-open-login" class="nav-btn-subtle" title="Log in with verified account">
+                        <i class="bi bi-key-fill"></i> <span>LOG IN</span>
+                    </button>
+                    <button id="btn-open-register" class="nav-btn-gold" title="Join verified author base">
+                        <i class="bi bi-patch-check-fill"></i> <span>BECOME VERIFIED</span>
+                    </button>
+                </div>
+
+                <!-- Logged In State -->
+                <div id="nav-logged-in" class="auth-logged-group d-none">
+                    <div id="nav-author-pill" class="author-pill-btn" title="View your author profile & series">
+                        <img id="nav-user-avatar" src="" alt="" class="nav-avatar">
+                        <span id="nav-user-name" class="nav-user-name">Author</span>
+                        <span class="badge-verified"><i class="bi bi-patch-check-fill"></i> Verified</span>
+                    </div>
+                    <button id="btn-my-series" class="nav-icon-btn" title="My Series Portfolio">
+                        <i class="bi bi-collection-play-fill text-gold"></i>
+                    </button>
+                    <button id="btn-logout" class="nav-icon-btn" title="Log Out">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Audio Synthesizer Toggle -->
@@ -60,7 +93,7 @@
                 <i class="bi bi-volume-up-fill" id="sound-icon"></i>
             </button>
 
-            <!-- Primary Header Action -->
+            <!-- Primary Action: Write Article -->
             <button id="header-publish-btn" class="glow-pulse-btn-sm">
                 <i class="bi bi-pen-fill"></i>
                 <span>WRITE ARTICLE</span>
@@ -68,12 +101,13 @@
         </div>
     </header>
 
-    <!-- Permanent Live Trending & Top Writers Scoreboard (Top Right) -->
+    <!-- Permanent Live Trending, Series & Writers Scoreboard (Top Right) -->
     <div id="leaderboard" class="hud-glass permanent-scoreboard">
         <div class="leader-header">
             <div class="board-tabs">
                 <button id="tab-trending" class="board-tab-btn active"><i class="bi bi-fire text-magenta"></i> TRENDING</button>
-                <button id="tab-authors" class="board-tab-btn"><i class="bi bi-trophy text-gold"></i> WRITERS</button>
+                <button id="tab-series" class="board-tab-btn"><i class="bi bi-collection text-gold"></i> SERIES</button>
+                <button id="tab-authors" class="board-tab-btn"><i class="bi bi-patch-check text-cyan"></i> WRITERS</button>
             </div>
             <span class="leader-live-tag"><span class="live-dot-gold"></span>LIVE</span>
         </div>
@@ -83,7 +117,12 @@
             <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading stories...</div>
         </div>
 
-        <!-- Top Writers Tab (Hidden by default) -->
+        <!-- Series Tab -->
+        <div id="series-list" class="leader-scroll d-none">
+            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading series...</div>
+        </div>
+
+        <!-- Top Writers Tab -->
         <div id="authors-list" class="leader-scroll d-none">
             <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading writers...</div>
         </div>
@@ -118,10 +157,24 @@
         </div>
 
         <div class="reader-scrollable">
-            <!-- Article Hero Banner -->
+            <!-- Article Hero Banner with Exact Attached Photo -->
             <div class="reader-hero">
                 <img id="reader-cover-img" src="" alt="Article Cover" class="reader-hero-cover">
                 <div class="reader-hero-overlay"></div>
+            </div>
+
+            <!-- Series Navigation Banner (If part of an ongoing series) -->
+            <div id="reader-series-banner" class="reader-series-banner d-none">
+                <div class="series-banner-head">
+                    <div class="series-banner-meta">
+                        <i class="bi bi-collection-fill text-gold"></i>
+                        <span>SERIES: <strong id="reader-series-name" class="text-white">Series Title</strong></span>
+                        <span id="reader-series-part-tag" class="series-part-pill">Part 1</span>
+                    </div>
+                </div>
+                <div id="reader-series-siblings-pills" class="series-pills-row">
+                    <!-- Populated dynamically with all parts in this series -->
+                </div>
             </div>
 
             <!-- In Reply To Breadcrumb -->
@@ -140,11 +193,14 @@
                 <h1 id="reader-title" class="reader-headline">Article Headline</h1>
                 
                 <div class="reader-author-bar">
-                    <div class="author-profile">
+                    <div class="author-profile" id="reader-author-click-wrap" style="cursor: pointer;" title="View author profile & series">
                         <img id="reader-author-avatar" src="" alt="" class="reader-avatar">
                         <div class="author-details">
-                            <span id="reader-author-name" class="author-name">Author Name</span>
-                            <span id="reader-date" class="publish-date">Published today</span>
+                            <div class="author-name-line">
+                                <span id="reader-author-name" class="author-name">Author Name</span>
+                                <span id="reader-verified-badge" class="badge-verified-sm d-none"><i class="bi bi-patch-check-fill"></i> Verified</span>
+                            </div>
+                            <span id="reader-date" class="publish-date">Published recently</span>
                         </div>
                     </div>
 
@@ -201,6 +257,28 @@
             <button id="composer-close-x" class="modal-x">&times;</button>
         </div>
 
+        <!-- Verified Author Identity Banner -->
+        <div id="composer-verified-author-banner" class="author-status-banner verified-status d-none">
+            <i class="bi bi-patch-check-fill text-cyan fs-5"></i>
+            <div>
+                <div class="status-title">PUBLISHING AS VERIFIED AUTHOR</div>
+                <div class="status-sub"><span id="composer-auth-name">Pen Name</span> (<span id="composer-auth-badge" class="text-cyan">Verified Author</span>)</div>
+            </div>
+        </div>
+
+        <!-- Guest Notice Banner (Prompting to register for loyal customer base) -->
+        <div id="composer-guest-banner" class="author-status-banner guest-status">
+            <i class="bi bi-info-circle-fill text-gold fs-5"></i>
+            <div>
+                <div class="status-title">PUBLISHING AS GUEST CITIZEN</div>
+                <div class="status-sub">
+                    Want an official verified badge & series publishing? 
+                    <a href="#" id="composer-prompt-register" class="link-gold">Join as Verified Author</a> or 
+                    <a href="#" id="composer-prompt-login" class="link-cyan">Log In</a>
+                </div>
+            </div>
+        </div>
+
         <!-- Replying-To Callout Banner -->
         <div id="composer-reply-target-banner" class="sponsor-banner d-none">
             <i class="bi bi-reply-fill text-cyan fs-4"></i>
@@ -213,6 +291,7 @@
 
         <form id="article-form" onsubmit="return false;">
             <input type="hidden" id="form-parent-id" value="">
+            <input type="hidden" id="form-final-cover" value="">
 
             <div class="form-row-two">
                 <div class="input-group">
@@ -226,7 +305,7 @@
                     </select>
                 </div>
 
-                <div class="input-group">
+                <div class="input-group" id="group-author-name">
                     <label>Author / Pen Name *:</label>
                     <input type="text" id="form-author" placeholder="e.g. Satoshi, Elena Vance" maxlength="40" required>
                 </div>
@@ -237,38 +316,76 @@
                 <input type="text" id="form-title" placeholder="e.g. In Defense of Decentralized Knowledge Graphs" maxlength="100" required>
             </div>
 
+            <!-- PHOTO ATTACHMENT SECTION (File Upload or Direct URL with Live Preview) -->
+            <div class="photo-attach-box">
+                <div class="photo-attach-header">
+                    <label><i class="bi bi-image text-cyan"></i> Attach Cover Photo (Shown on Card & Reader):</label>
+                    <div class="photo-tab-pills">
+                        <button type="button" id="tab-photo-file" class="photo-tab active"><i class="bi bi-upload"></i> Upload File</button>
+                        <button type="button" id="tab-photo-url" class="photo-tab"><i class="bi bi-link-45deg"></i> Image URL</button>
+                    </div>
+                </div>
+
+                <!-- File Upload Option -->
+                <div id="photo-file-section" class="photo-input-section">
+                    <div class="file-drop-area" id="file-drop-zone">
+                        <i class="bi bi-cloud-arrow-up fs-3 text-cyan"></i>
+                        <span class="drop-text">Click to browse or drop an image file (PNG, JPG, WEBP)</span>
+                        <input type="file" id="composer-file-input" accept="image/*" class="file-hidden-input">
+                    </div>
+                </div>
+
+                <!-- Direct URL Option -->
+                <div id="photo-url-section" class="photo-input-section d-none">
+                    <input type="text" id="composer-url-input" placeholder="Paste direct image URL (https://...)" class="cyber-input">
+                </div>
+
+                <!-- Live Photo Attachment Preview -->
+                <div id="photo-preview-wrap" class="photo-preview-wrap d-none">
+                    <div class="photo-preview-box">
+                        <img id="composer-preview-img" src="" alt="Cover Preview" class="composer-preview-thumb">
+                        <div class="preview-meta">
+                            <span class="preview-badge"><i class="bi bi-check-circle-fill text-cyan"></i> Photo Attached</span>
+                            <span id="preview-filename" class="preview-name">cover.jpg</span>
+                        </div>
+                        <button type="button" id="btn-remove-photo" class="btn-remove-photo" title="Remove photo">
+                            <i class="bi bi-trash3-fill"></i> Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERIES WRITING SECTION -->
+            <div class="series-attach-box">
+                <div class="series-checkbox-row">
+                    <label class="custom-checkbox">
+                        <input type="checkbox" id="form-is-series">
+                        <span class="checkmark"></span>
+                        <span class="cb-label"><i class="bi bi-collection-fill text-gold"></i> Publish as part of a multi-part Series</span>
+                    </label>
+                </div>
+
+                <div id="series-inputs-panel" class="series-inputs-panel d-none">
+                    <div class="form-row-two">
+                        <div class="input-group">
+                            <label>Series Name / Theme *:</label>
+                            <input type="text" id="form-series-title" placeholder="e.g. The Spatial Matrix Papers, Cyberpunk Governance" list="existing-series-datalist">
+                            <datalist id="existing-series-datalist"></datalist>
+                        </div>
+                        <div class="input-group">
+                            <label>Episode / Part Number *:</label>
+                            <input type="number" id="form-series-part" min="1" max="99" value="1" placeholder="e.g. 1, 2, 3">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="input-group">
                 <div class="label-with-hint">
                     <label>Article Body (Markdown Supported) *:</label>
                     <span class="input-hint">Use ## Headings, > Quotes, `code`, **bold**, - lists</span>
                 </div>
-                <textarea id="form-content" rows="7" placeholder="Write your full story or perspective here... Supports markdown formatting." required></textarea>
-            </div>
-
-            <div class="input-group">
-                <label>Cover Art Preset (Optional):</label>
-                <div class="cover-preset-grid">
-                    <label class="cover-preset-label">
-                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80" checked>
-                        <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=120&auto=format&fit=crop&q=80" alt="Cyber 1">
-                    </label>
-                    <label class="cover-preset-label">
-                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80">
-                        <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=120&auto=format&fit=crop&q=80" alt="Cyber 2">
-                    </label>
-                    <label class="cover-preset-label">
-                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80">
-                        <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=120&auto=format&fit=crop&q=80" alt="Cyber 3">
-                    </label>
-                    <label class="cover-preset-label">
-                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80">
-                        <img src="https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=120&auto=format&fit=crop&q=80" alt="Cyber 4">
-                    </label>
-                    <label class="cover-preset-label">
-                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80">
-                        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=120&auto=format&fit=crop&q=80" alt="Cyber 5">
-                    </label>
-                </div>
+                <textarea id="form-content" rows="6" placeholder="Write your full story or perspective here... Supports rich markdown formatting." required></textarea>
             </div>
 
             <div class="btn-group">
@@ -279,6 +396,146 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Author Registration Modal (Loyal Customer / Verified Author Base) -->
+    <div id="register-modal" class="cyber-modal hud-glass d-none">
+        <div class="modal-header">
+            <h2><i class="bi bi-patch-check-fill text-gold"></i> Join Verified Author Base</h2>
+            <button id="register-close-x" class="modal-x">&times;</button>
+        </div>
+        <p class="modal-sub">Create your verified cryptographic author ID to publish recurring series, earn reader claps, and build your loyal reader following.</p>
+
+        <form id="register-form" onsubmit="return false;">
+            <div class="form-row-two">
+                <div class="input-group">
+                    <label>Pen Name / Author Name *:</label>
+                    <input type="text" id="reg-pen-name" placeholder="e.g. Maya Lin, Satoshi" maxlength="40" required>
+                </div>
+                <div class="input-group">
+                    <label>Handle / Username *:</label>
+                    <input type="text" id="reg-username" placeholder="e.g. mayalin (letters, numbers, _)" maxlength="30" required>
+                </div>
+            </div>
+
+            <div class="form-row-two">
+                <div class="input-group">
+                    <label>Email Address (Optional):</label>
+                    <input type="email" id="reg-email" placeholder="author@network.xyz">
+                </div>
+                <div class="input-group">
+                    <label>Password (Min 6 chars) *:</label>
+                    <input type="password" id="reg-password" placeholder="••••••••" minlength="6" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Author Bio & Editorial Focus:</label>
+                <input type="text" id="reg-bio" placeholder="e.g. Researching decentralized media, spatial UX, and open protocols" maxlength="120">
+            </div>
+
+            <div class="btn-group">
+                <button type="button" id="reg-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="reg-submit-btn" class="btn-primary">
+                    <i class="bi bi-stars"></i>
+                    <span>CREATE VERIFIED ID</span>
+                </button>
+            </div>
+
+            <div class="modal-footer-switch">
+                Already registered? <a href="#" id="link-to-login" class="link-cyan">Log in to your account</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Author Login Modal -->
+    <div id="login-modal" class="cyber-modal hud-glass d-none">
+        <div class="modal-header">
+            <h2><i class="bi bi-key-fill text-cyan"></i> Author Log In</h2>
+            <button id="login-close-x" class="modal-x">&times;</button>
+        </div>
+
+        <form id="login-form" onsubmit="return false;">
+            <div class="input-group">
+                <label>Username or Email *:</label>
+                <input type="text" id="login-identifier" placeholder="e.g. satoshi or author@network.xyz" required>
+            </div>
+
+            <div class="input-group">
+                <label>Password *:</label>
+                <input type="password" id="login-password" placeholder="••••••••" required>
+            </div>
+
+            <div class="btn-group">
+                <button type="button" id="login-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="login-submit-btn" class="btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <span>LOG IN</span>
+                </button>
+            </div>
+
+            <div class="modal-footer-switch">
+                Need a verified author account? <a href="#" id="link-to-register" class="link-gold">Register now</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Author Portfolio & Series Drawer -->
+    <div id="author-portfolio-drawer" class="reader-drawer hud-glass d-none">
+        <div class="reader-top-bar">
+            <div class="reader-top-left">
+                <span class="badge-cat cat-newsletter"><i class="bi bi-person-badge-fill"></i> AUTHOR PORTFOLIO</span>
+            </div>
+            <button id="author-drawer-close-btn" class="reader-close-x">&times;</button>
+        </div>
+
+        <div class="reader-scrollable">
+            <!-- Author Profile Card -->
+            <div class="author-hero-card">
+                <img id="portfolio-avatar" src="" alt="" class="portfolio-avatar">
+                <div class="portfolio-meta">
+                    <div class="author-name-line">
+                        <h2 id="portfolio-name" class="portfolio-pen-name">Author Name</h2>
+                        <span id="portfolio-badge" class="badge-verified-sm"><i class="bi bi-patch-check-fill"></i> Verified</span>
+                    </div>
+                    <span id="portfolio-handle" class="portfolio-handle">@username</span>
+                    <p id="portfolio-bio" class="portfolio-bio">Author bio goes here...</p>
+                    
+                    <div class="portfolio-stats-row">
+                        <div class="p-stat">
+                            <span class="p-val text-gold" id="portfolio-total-claps">0</span>
+                            <span class="p-lbl">Claps Earned</span>
+                        </div>
+                        <div class="p-stat">
+                            <span class="p-val text-cyan" id="portfolio-articles-count">0</span>
+                            <span class="p-lbl">Publications</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Series Section -->
+            <div class="portfolio-section">
+                <div class="section-title-row">
+                    <h3><i class="bi bi-collection-fill text-gold"></i> Authored Series</h3>
+                    <p class="section-subtitle">Multi-part sequential writings published by this author</p>
+                </div>
+                <div id="portfolio-series-list" class="portfolio-series-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- All Articles Section -->
+            <div class="portfolio-section">
+                <div class="section-title-row">
+                    <h3><i class="bi bi-journal-text text-cyan"></i> All Writings & Perspectives</h3>
+                    <p class="section-subtitle">Articles and discussions on the matrix tree</p>
+                </div>
+                <div id="portfolio-articles-list" class="branch-replies-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Canvas Viewport -->
