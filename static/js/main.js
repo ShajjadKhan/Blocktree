@@ -135,19 +135,26 @@ function panToCoordinate(targetX, targetY, scale = 0.85) {
     updateZoomDisplay(scale);
 }
 
-function resetView() {
-    if (currentNodes.length > 0) {
-        focusNode(currentNodes[0].id, 0.80);
-    } else {
-        panToCoordinate(3000, 200, 0.80);
-    }
-}
-
 // Global State
 let currentNodes = [];
 let nodeMap = {};
 let activeReaderNodeId = null;
 let currentAuthor = null; // Verified author state
+let lastFocusedNodeId = null; // Track last clicked / focused post for camera recenter
+
+function resetView() {
+    const targetId = (lastFocusedNodeId && nodeMap[lastFocusedNodeId])
+        ? lastFocusedNodeId
+        : (currentNodes.length > 0 ? currentNodes[0].id : null);
+        
+    if (targetId && nodeMap[targetId]) {
+        const isMobile = window.innerWidth <= 768;
+        focusNode(targetId, isMobile ? 0.85 : 0.95);
+        showToast(`🎯 Centered on: "${(nodeMap[targetId].title || 'Post #' + targetId).slice(0, 26)}..."`);
+    } else {
+        panToCoordinate(3000, 200, 0.80);
+    }
+}
 
 // Category Styling Helpers
 function getCategoryClass(cat) {
@@ -184,8 +191,11 @@ function getBranchClass(cat) {
 function focusNode(nodeId, scale = 1.05) {
     const node = nodeMap[nodeId];
     if (node) {
+        lastFocusedNodeId = nodeId;
         playSound('click');
-        panToCoordinate(node.x + 135, node.y + 80, scale);
+        const isMobile = window.innerWidth <= 768;
+        const targetScale = isMobile ? Math.min(scale, 0.88) : scale;
+        panToCoordinate(node.x + 135, node.y + 80, targetScale);
         
         const elem = document.querySelector(`.editorial-card[data-id="${nodeId}"]`);
         if (elem) {
@@ -476,6 +486,7 @@ const readerJumpParentBtn = document.getElementById('reader-jump-parent-btn');
 async function openReader(nodeId) {
     playSound('click');
     activeReaderNodeId = nodeId;
+    lastFocusedNodeId = nodeId;
     
     try {
         const res = await fetch(`/api/nodes/${nodeId}`);
@@ -1472,6 +1483,58 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// Mobile Header Toggles: Search HUD & Scoreboard
+const btnMobileSearch = document.getElementById('btn-mobile-search');
+const btnMobileTrending = document.getElementById('btn-mobile-trending');
+const scoreboardCloseBtn = document.getElementById('scoreboard-close-btn');
+const leaderboardDeck = document.getElementById('leaderboard');
+const searchHud = document.getElementById('search-hud');
+
+if (btnMobileSearch && searchHud) {
+    btnMobileSearch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const isOpen = searchHud.classList.toggle('mobile-open');
+        if (isOpen) {
+            setTimeout(() => {
+                if (searchInput) searchInput.focus();
+            }, 100);
+        }
+    });
+}
+
+if (btnMobileTrending && leaderboardDeck) {
+    btnMobileTrending.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        leaderboardDeck.classList.toggle('mobile-open');
+    });
+}
+
+if (scoreboardCloseBtn && leaderboardDeck) {
+    scoreboardCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        leaderboardDeck.classList.remove('mobile-open');
+    });
+}
+
+// Close mobile panels when clicking outside on canvas
+document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 768) {
+        if (leaderboardDeck && leaderboardDeck.classList.contains('mobile-open')) {
+            if (!leaderboardDeck.contains(e.target) && (!btnMobileTrending || !btnMobileTrending.contains(e.target))) {
+                leaderboardDeck.classList.remove('mobile-open');
+            }
+        }
+        if (searchHud && searchHud.classList.contains('mobile-open')) {
+            if (!searchHud.contains(e.target) && (!btnMobileSearch || !btnMobileSearch.contains(e.target))) {
+                searchHud.classList.remove('mobile-open');
+            }
+        }
+    }
+});
+
 // ==========================================================================
 // Precision Zoom Workflow & Live Display (+ / - / 100% Reset)
 // ==========================================================================
@@ -1569,7 +1632,6 @@ if (ctrlResetBtn) {
     ctrlResetBtn.addEventListener('click', () => {
         playSound('click');
         resetView();
-        showToast("🎯 Recenter camera on matrix");
     });
 }
 
@@ -1738,6 +1800,27 @@ function initJoystick() {
             panzoom.pan(px, py, { relative: true, animate: true });
         });
     });
+    // Compact mode minimize toggle
+    const joyMinBtn = document.getElementById('joy-min-btn');
+    const joyMinIcon = document.getElementById('joy-min-icon');
+    const spatialNavDeck = document.getElementById('spatial-nav-deck');
+
+    if (joyMinBtn && spatialNavDeck) {
+        joyMinBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('click');
+            const isCompact = spatialNavDeck.classList.toggle('compact-mode');
+            if (joyMinIcon) {
+                if (isCompact) {
+                    joyMinIcon.className = 'bi bi-arrows-angle-expand';
+                    joyMinBtn.title = 'Expand Navigation Deck';
+                } else {
+                    joyMinIcon.className = 'bi bi-dash-lg';
+                    joyMinBtn.title = 'Minimize Navigation Deck';
+                }
+            }
+        });
+    }
 }
 
 // Arrow / WASD keys for matrix panning when not typing
@@ -1798,6 +1881,8 @@ document.addEventListener('keydown', (e) => {
         closeLoginModal();
         readerDrawer.classList.add('d-none');
         authorDrawer.classList.add('d-none');
+        if (leaderboardDeck) leaderboardDeck.classList.remove('mobile-open');
+        if (searchHud) searchHud.classList.remove('mobile-open');
         activeReaderNodeId = null;
     }
 });

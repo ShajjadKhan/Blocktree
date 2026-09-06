@@ -53,6 +53,16 @@
         </div>
 
         <div class="nav-right">
+            <!-- Mobile Trending Toggle Button -->
+            <button type="button" id="btn-mobile-trending" class="nav-icon-btn d-none" title="Trending Stories & Rankings">
+                <i class="bi bi-fire text-magenta"></i>
+            </button>
+
+            <!-- Mobile Search Toggle Button -->
+            <button type="button" id="btn-mobile-search" class="nav-icon-btn d-none" title="Search Matrix">
+                <i class="bi bi-search text-cyan"></i>
+            </button>
+
             <!-- Search Input -->
             <div class="search-hud" id="search-hud">
                 <i class="bi bi-search search-icon"></i>
@@ -101,7 +111,7 @@
         </div>
     </header>
 
-    <!-- Permanent Live Trending, Series & Writers Scoreboard (Top Right) -->
+    <!-- Permanent Live Trending, Series & Writers Scoreboard (Top Right / Mobile Bottom Sheet) -->
     <div id="leaderboard" class="hud-glass permanent-scoreboard">
         <div class="leader-header">
             <div class="board-tabs">
@@ -109,7 +119,10 @@
                 <button id="tab-series" class="board-tab-btn"><i class="bi bi-collection text-gold"></i> SERIES</button>
                 <button id="tab-authors" class="board-tab-btn"><i class="bi bi-patch-check text-cyan"></i> WRITERS</button>
             </div>
-            <span class="leader-live-tag"><span class="live-dot-gold"></span>LIVE</span>
+            <div class="leader-header-right">
+                <span class="leader-live-tag"><span class="live-dot-gold"></span>LIVE</span>
+                <button type="button" id="scoreboard-close-btn" class="scoreboard-close-x d-none" title="Close Scoreboard">&times;</button>
+            </div>
         </div>
         
         <!-- Trending Articles Tab -->
@@ -135,6 +148,9 @@
             <div class="joystick-header">
                 <span class="joy-label"><i class="bi bi-compass"></i> 360° NAV</span>
                 <span id="joy-coord-indicator" class="joy-speed-tag">360°</span>
+                <button type="button" id="joy-min-btn" class="joy-min-btn" title="Toggle Compact Navigator">
+                    <i class="bi bi-dash-lg" id="joy-min-icon"></i>
+                </button>
             </div>
             
             <div id="joystick-base" class="joystick-base" title="Drag thumbstick 360° to pan smoothly across matrix">
