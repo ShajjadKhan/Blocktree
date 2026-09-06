@@ -859,7 +859,7 @@ const composerCloseX = document.getElementById('composer-close-x');
 const composerCancelBtn = document.getElementById('composer-cancel-btn');
 const form = document.getElementById('article-form');
 
-// Photo Attachment Elements
+// Photo Attachment Elements & Compact Tray Toggles
 const tabPhotoFile = document.getElementById('tab-photo-file');
 const tabPhotoUrl = document.getElementById('tab-photo-url');
 const photoFileSection = document.getElementById('photo-file-section');
@@ -872,6 +872,22 @@ const composerPreviewImg = document.getElementById('composer-preview-img');
 const previewFilename = document.getElementById('preview-filename');
 const btnRemovePhoto = document.getElementById('btn-remove-photo');
 const formFinalCover = document.getElementById('form-final-cover');
+const btnTogglePhotoTray = document.getElementById('btn-toggle-photo-tray');
+const composerPhotoTray = document.getElementById('composer-photo-tray');
+const btnClosePhotoTray = document.getElementById('btn-close-photo-tray');
+const photoPillLabel = document.getElementById('photo-pill-label');
+
+// Toggle Photo Tray
+if (btnTogglePhotoTray && composerPhotoTray) {
+    btnTogglePhotoTray.addEventListener('click', () => {
+        composerPhotoTray.classList.toggle('d-none');
+    });
+}
+if (btnClosePhotoTray && composerPhotoTray) {
+    btnClosePhotoTray.addEventListener('click', () => {
+        composerPhotoTray.classList.add('d-none');
+    });
+}
 
 // Photo Tab Toggles
 tabPhotoFile.addEventListener('click', () => {
@@ -910,6 +926,8 @@ composerFileInput.addEventListener('change', async (e) => {
         const data = await res.json();
         if (res.ok && data.url) {
             formFinalCover.value = data.url;
+            if (photoPillLabel) photoPillLabel.textContent = "Cover ✓";
+            if (btnTogglePhotoTray) btnTogglePhotoTray.classList.add("active");
             showToast("Photo attached successfully!");
         } else {
             showToast(data.error || "Upload failed", true);
@@ -927,9 +945,13 @@ composerUrlInput.addEventListener('input', () => {
         composerPreviewImg.src = url;
         previewFilename.textContent = url.slice(0, 30) + '...';
         photoPreviewWrap.classList.remove('d-none');
+        if (photoPillLabel) photoPillLabel.textContent = "Cover ✓";
+        if (btnTogglePhotoTray) btnTogglePhotoTray.classList.add("active");
     } else {
         formFinalCover.value = '';
         photoPreviewWrap.classList.add('d-none');
+        if (photoPillLabel) photoPillLabel.textContent = "Cover";
+        if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove("active");
     }
 });
 
@@ -939,19 +961,75 @@ btnRemovePhoto.addEventListener('click', () => {
     formFinalCover.value = '';
     composerPreviewImg.src = '';
     photoPreviewWrap.classList.add('d-none');
+    if (photoPillLabel) photoPillLabel.textContent = "Cover";
+    if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove("active");
 });
 
-// Series Toggle in Composer
+// Series Toggle & Compact Tray System
 const formIsSeries = document.getElementById('form-is-series');
 const seriesInputsPanel = document.getElementById('series-inputs-panel');
+const btnToggleSeriesTray = document.getElementById('btn-toggle-series-tray');
+const composerSeriesTray = document.getElementById('composer-series-tray');
+const btnCloseSeriesTray = document.getElementById('btn-close-series-tray');
+const seriesPillLabel = document.getElementById('series-pill-label');
+const formSeriesTitle = document.getElementById('form-series-title');
+const formSeriesPart = document.getElementById('form-series-part');
 
-formIsSeries.addEventListener('change', () => {
-    if (formIsSeries.checked) {
-        seriesInputsPanel.classList.remove('d-none');
-    } else {
-        seriesInputsPanel.classList.add('d-none');
-    }
-});
+if (btnToggleSeriesTray && composerSeriesTray) {
+    btnToggleSeriesTray.addEventListener('click', () => {
+        const isOpening = composerSeriesTray.classList.contains('d-none');
+        composerSeriesTray.classList.toggle('d-none');
+        if (isOpening) {
+            if (formIsSeries) formIsSeries.checked = true;
+            if (formSeriesTitle) formSeriesTitle.focus();
+        }
+    });
+}
+
+if (btnCloseSeriesTray && composerSeriesTray) {
+    btnCloseSeriesTray.addEventListener('click', () => {
+        composerSeriesTray.classList.add('d-none');
+        if (formSeriesTitle && !formSeriesTitle.value.trim()) {
+            if (formIsSeries) formIsSeries.checked = false;
+            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
+            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
+        }
+    });
+}
+
+if (formSeriesTitle) {
+    formSeriesTitle.addEventListener('input', () => {
+        const val = formSeriesTitle.value.trim();
+        if (val) {
+            if (formIsSeries) formIsSeries.checked = true;
+            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.add('series-active');
+            const part = (formSeriesPart && formSeriesPart.value) ? formSeriesPart.value : '1';
+            if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
+        } else {
+            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
+            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
+        }
+    });
+}
+
+if (formSeriesPart) {
+    formSeriesPart.addEventListener('input', () => {
+        if (formSeriesTitle && formSeriesTitle.value.trim()) {
+            const part = formSeriesPart.value || '1';
+            if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
+        }
+    });
+}
+
+if (formIsSeries) {
+    formIsSeries.addEventListener('change', () => {
+        if (formIsSeries.checked) {
+            if (seriesInputsPanel) seriesInputsPanel.classList.remove('d-none');
+        } else {
+            if (seriesInputsPanel) seriesInputsPanel.classList.add('d-none');
+        }
+    });
+}
 
 // ==========================================================================
 // Microsoft Word Studio Mode & Formatting Toolbar System
@@ -1293,6 +1371,29 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
         submitText.textContent = "PUBLISH TO MATRIX";
     }
     
+    // Collapse trays by default to maximize article body space
+    if (composerPhotoTray) composerPhotoTray.classList.add('d-none');
+    if (composerSeriesTray) composerSeriesTray.classList.add('d-none');
+    
+    // Sync Cover pill state
+    if (formFinalCover && formFinalCover.value) {
+        if (photoPillLabel) photoPillLabel.textContent = 'Cover ✓';
+        if (btnTogglePhotoTray) btnTogglePhotoTray.classList.add('active');
+    } else {
+        if (photoPillLabel) photoPillLabel.textContent = 'Cover';
+        if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove('active');
+    }
+
+    // Sync Series pill state
+    if (formSeriesTitle && formSeriesTitle.value.trim()) {
+        if (btnToggleSeriesTray) btnToggleSeriesTray.classList.add('series-active');
+        const part = (formSeriesPart && formSeriesPart.value) ? formSeriesPart.value : '1';
+        if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
+    } else {
+        if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
+        if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
+    }
+
     overlay.style.display = 'block';
     composerModal.classList.remove('d-none');
     updateLiveStats();
@@ -1418,6 +1519,12 @@ form.addEventListener('submit', async (e) => {
             showToast(parentId ? "⚡ Branch Reply published successfully!" : "📰 Article published to matrix!");
             closeComposer();
             form.reset();
+            if (photoPillLabel) photoPillLabel.textContent = 'Cover';
+            if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove('active');
+            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
+            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
+            if (composerPhotoTray) composerPhotoTray.classList.add('d-none');
+            if (composerSeriesTray) composerSeriesTray.classList.add('d-none');
             btnRemovePhoto.click();
             
             await loadMatrix(false);

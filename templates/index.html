@@ -314,13 +314,12 @@
         </div>
     </div>
 
-    <!-- Article & Branch Reply Composer Modal (Word Studio Mode) -->
     <div id="overlay"></div>
-    <div id="composer-modal" class="cyber-modal hud-glass d-none">
-        <div class="modal-header">
+    <div id="composer-modal" class="cyber-modal hud-glass composer-modern d-none">
+        <div class="modal-header composer-header-compact">
             <div class="modal-title-wrap">
-                <h2 id="composer-modal-title"><i class="bi bi-pen-fill text-cyan"></i> Write Article</h2>
-                <span id="composer-studio-badge" class="studio-badge d-none"><i class="bi bi-file-earmark-richtext"></i> Word Studio Mode</span>
+                <h2 id="composer-modal-title"><i class="bi bi-pen-fill text-cyan"></i> Publish New Edition</h2>
+                <span id="composer-studio-badge" class="studio-badge d-none"><i class="bi bi-file-earmark-richtext"></i> Word Studio</span>
             </div>
             <div class="modal-header-actions">
                 <button type="button" id="composer-fullscreen-btn" class="modal-action-btn" title="Toggle Word Studio (Fullscreen Mode)">
@@ -330,142 +329,147 @@
             </div>
         </div>
 
-        <!-- Verified Author Identity Banner -->
-        <div id="composer-verified-author-banner" class="author-status-banner verified-status d-none">
-            <i class="bi bi-patch-check-fill text-cyan fs-5"></i>
-            <div>
-                <div class="status-title">PUBLISHING AS VERIFIED AUTHOR</div>
-                <div class="status-sub"><span id="composer-auth-name">Pen Name</span> (<span id="composer-auth-badge" class="text-cyan">Verified Author</span>)</div>
-            </div>
-        </div>
-
-        <!-- Guest Notice Banner (Prompting to register for loyal customer base) -->
-        <div id="composer-guest-banner" class="author-status-banner guest-status">
-            <i class="bi bi-info-circle-fill text-gold fs-5"></i>
-            <div>
-                <div class="status-title">PUBLISHING AS GUEST CITIZEN</div>
-                <div class="status-sub">
-                    Want an official verified badge & series publishing? 
-                    <a href="#" id="composer-prompt-register" class="link-gold">Join as Verified Author</a> or 
-                    <a href="#" id="composer-prompt-login" class="link-cyan">Log In</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Replying-To Callout Banner -->
-        <div id="composer-reply-target-banner" class="sponsor-banner d-none">
-            <i class="bi bi-reply-fill text-cyan fs-4"></i>
-            <div class="sponsor-meta">
-                <div class="sponsor-label">BRANCHING REPLY TO</div>
-                <div class="sponsor-name" id="composer-target-title">Parent Article Title</div>
-                <div class="small opacity-75" id="composer-target-author">by @Author</div>
-            </div>
+        <!-- Replying-To Callout Tag (Compact) -->
+        <div id="composer-reply-target-banner" class="composer-reply-strip d-none">
+            <i class="bi bi-reply-fill text-cyan"></i>
+            <span class="reply-label">Replying to:</span>
+            <span class="reply-title" id="composer-target-title">Parent Article</span>
+            <span class="reply-author" id="composer-target-author">by @Author</span>
             <button type="button" class="btn-clear-reply-target ms-auto" id="composer-btn-detach-reply" title="Detach and post as new standalone edition">&times;</button>
         </div>
 
-        <form id="article-form" onsubmit="return false;">
+        <!-- Verified Author Identity Banner (Compact) -->
+        <div id="composer-verified-author-banner" class="composer-author-strip verified-status d-none">
+            <i class="bi bi-patch-check-fill text-cyan"></i>
+            <span>Verified Author: <strong id="composer-auth-name">Pen Name</strong> (<span id="composer-auth-badge" class="text-cyan">Verified</span>)</span>
+        </div>
+
+        <!-- Guest Notice Banner (Compact) -->
+        <div id="composer-guest-banner" class="composer-author-strip guest-status">
+            <i class="bi bi-info-circle text-gold"></i>
+            <span>Guest Mode — <a href="#" id="composer-prompt-register" class="link-gold">Join as Author</a> or <a href="#" id="composer-prompt-login" class="link-cyan">Log In</a></span>
+        </div>
+
+        <form id="article-form" class="composer-form-flex" onsubmit="return false;">
             <input type="hidden" id="form-parent-id" value="">
             <input type="hidden" id="form-final-cover" value="">
 
-            <!-- Node Connection / Parent Article Selector -->
-            <div id="composer-parent-picker-group" class="parent-picker-row mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <label class="small text-muted"><i class="bi bi-diagram-3-fill text-cyan"></i> Matrix Connection / Parent Node:</label>
-                    <span id="parent-picker-status" class="badge-cat cat-perspective" style="font-size: 8.5px;">Standalone</span>
-                </div>
-                <select id="form-parent-selector" class="cyber-select">
-                    <option value="">📰 Standalone Root Edition (Starts new root tree)</option>
-                </select>
+            <!-- Prominent Modern Headline / Title (Medium & Notion Style) -->
+            <div class="composer-title-wrapper">
+                <input type="text" id="form-title" class="composer-title-input" placeholder="Title / Headline..." maxlength="100" required autocomplete="off">
             </div>
 
-            <div class="form-row-two">
-                <div class="input-group">
-                    <label>Category / Perspective Type *:</label>
-                    <select id="form-category" class="cyber-select">
-                        <option value="Perspective">💡 Perspective (Thought / Opinion)</option>
-                        <option value="Counterpoint">⚡ Counterpoint (Rebuttal / Critique)</option>
-                        <option value="Deep Dive">🔬 Deep Dive (Technical / Analysis)</option>
-                        <option value="Discussion">💬 Discussion (Question / Addendum)</option>
-                        <option value="Newsletter">📰 Newsletter Edition (Main Pillar)</option>
+            <!-- Sleek Horizontal Metadata Strip -->
+            <div class="composer-meta-strip">
+                <!-- Category Dropdown Pill -->
+                <div class="meta-pill meta-pill-cat" title="Category / Perspective">
+                    <i class="bi bi-tag-fill text-gold"></i>
+                    <select id="form-category" class="meta-pill-select">
+                        <option value="Perspective">💡 Perspective</option>
+                        <option value="Counterpoint">⚡ Counterpoint</option>
+                        <option value="Deep Dive">🔬 Deep Dive</option>
+                        <option value="Discussion">💬 Discussion</option>
+                        <option value="Newsletter">📰 Newsletter</option>
                     </select>
                 </div>
 
-                <div class="input-group" id="group-author-name">
-                    <label>Author / Pen Name *:</label>
-                    <input type="text" id="form-author" placeholder="e.g. Satoshi, Elena Vance" maxlength="40" required>
+                <!-- Matrix Connection Pill -->
+                <div id="composer-parent-picker-group" class="meta-pill meta-pill-parent" title="Matrix Connection / Parent Node">
+                    <i class="bi bi-diagram-3-fill text-cyan"></i>
+                    <select id="form-parent-selector" class="meta-pill-select">
+                        <option value="">📰 Root Edition</option>
+                    </select>
+                    <span id="parent-picker-status" class="d-none">Standalone</span>
                 </div>
+
+                <!-- Author / Pen Name Pill -->
+                <div class="meta-pill meta-pill-author" id="group-author-name" title="Author / Pen Name">
+                    <i class="bi bi-person-fill text-cyan"></i>
+                    <input type="text" id="form-author" class="meta-pill-input" placeholder="Pen Name *" maxlength="40" required>
+                </div>
+
+                <!-- Toggle Photo Attachment Tray Pill Button -->
+                <button type="button" id="btn-toggle-photo-tray" class="meta-pill meta-pill-btn" title="Attach Cover Image">
+                    <i class="bi bi-image text-cyan"></i>
+                    <span id="photo-pill-label">Cover</span>
+                </button>
+
+                <!-- Toggle Series Collection Tray Pill Button -->
+                <button type="button" id="btn-toggle-series-tray" class="meta-pill meta-pill-btn" title="Add to Series Collection">
+                    <i class="bi bi-collection-fill text-gold"></i>
+                    <span id="series-pill-label">Series</span>
+                </button>
             </div>
 
-            <div class="input-group">
-                <label>Article Headline / Title *:</label>
-                <input type="text" id="form-title" placeholder="e.g. In Defense of Decentralized Knowledge Graphs" maxlength="100" required>
-            </div>
-
-            <!-- PHOTO ATTACHMENT SECTION (File Upload or Direct URL with Live Preview) -->
-            <div class="photo-attach-box">
-                <div class="photo-attach-header">
-                    <label><i class="bi bi-image text-cyan"></i> Attach Cover Photo (Exact photo will be displayed):</label>
-                    <div class="photo-tab-pills">
-                        <button type="button" id="tab-photo-file" class="photo-tab active"><i class="bi bi-upload"></i> Upload File</button>
-                        <button type="button" id="tab-photo-url" class="photo-tab"><i class="bi bi-link-45deg"></i> Image URL</button>
-                    </div>
-                </div>
-
-                <!-- File Upload Option -->
-                <div id="photo-file-section" class="photo-input-section">
-                    <div class="file-drop-area" id="file-drop-zone">
-                        <i class="bi bi-cloud-arrow-up fs-3 text-cyan"></i>
-                        <span class="drop-text">Click to browse or drop an image file (PNG, JPG, WEBP)</span>
-                        <input type="file" id="composer-file-input" accept="image/*" class="file-hidden-input">
-                    </div>
-                </div>
-
-                <!-- Direct URL Option -->
-                <div id="photo-url-section" class="photo-input-section d-none">
-                    <input type="text" id="composer-url-input" placeholder="Paste direct image URL (https://...)" class="cyber-input">
-                </div>
-
-                <!-- Live Photo Attachment Preview -->
-                <div id="photo-preview-wrap" class="photo-preview-wrap d-none">
-                    <div class="photo-preview-box">
-                        <img id="composer-preview-img" src="" alt="Cover Preview" class="composer-preview-thumb">
-                        <div class="preview-meta">
-                            <span class="preview-badge"><i class="bi bi-check-circle-fill text-cyan"></i> Photo Attached</span>
-                            <span id="preview-filename" class="preview-name">cover.jpg</span>
+            <!-- Collapsible Photo Attachment Tray -->
+            <div id="composer-photo-tray" class="composer-collapsible-tray d-none">
+                <div class="photo-attach-box-compact">
+                    <div class="photo-attach-header-compact">
+                        <span class="tray-label"><i class="bi bi-image text-cyan"></i> Attach Cover Image:</span>
+                        <div class="photo-tab-pills">
+                            <button type="button" id="tab-photo-file" class="photo-tab active"><i class="bi bi-upload"></i> Upload</button>
+                            <button type="button" id="tab-photo-url" class="photo-tab"><i class="bi bi-link-45deg"></i> URL</button>
                         </div>
-                        <button type="button" id="btn-remove-photo" class="btn-remove-photo" title="Remove photo">
-                            <i class="bi bi-trash3-fill"></i> Remove
-                        </button>
+                        <button type="button" id="btn-close-photo-tray" class="tray-close-btn" title="Close photo options">&times;</button>
                     </div>
-                </div>
-            </div>
 
-            <!-- SERIES WRITING SECTION -->
-            <div class="series-attach-box">
-                <div class="series-checkbox-row">
-                    <label class="custom-checkbox">
-                        <input type="checkbox" id="form-is-series">
-                        <span class="checkmark"></span>
-                        <span class="cb-label"><i class="bi bi-collection-fill text-gold"></i> Publish as part of a multi-part Series</span>
-                    </label>
-                </div>
-
-                <div id="series-inputs-panel" class="series-inputs-panel d-none">
-                    <div class="form-row-two">
-                        <div class="input-group">
-                            <label>Series Name / Theme *:</label>
-                            <input type="text" id="form-series-title" placeholder="e.g. The Spatial Matrix Papers, Cyberpunk Governance" list="existing-series-datalist">
-                            <datalist id="existing-series-datalist"></datalist>
+                    <!-- File Upload Option -->
+                    <div id="photo-file-section" class="photo-input-section">
+                        <div class="file-drop-area-compact" id="file-drop-zone">
+                            <i class="bi bi-cloud-arrow-up text-cyan"></i>
+                            <span class="drop-text">Click to choose image or drag & drop (PNG, JPG, WEBP)</span>
+                            <input type="file" id="composer-file-input" accept="image/*" class="file-hidden-input">
                         </div>
-                        <div class="input-group">
-                            <label>Episode / Part Number *:</label>
-                            <input type="number" id="form-series-part" min="1" max="99" value="1" placeholder="e.g. 1, 2, 3">
+                    </div>
+
+                    <!-- Direct URL Option -->
+                    <div id="photo-url-section" class="photo-input-section d-none">
+                        <input type="text" id="composer-url-input" placeholder="Paste direct image URL (https://...)" class="cyber-input">
+                    </div>
+
+                    <!-- Live Photo Attachment Preview -->
+                    <div id="photo-preview-wrap" class="photo-preview-wrap-compact d-none">
+                        <div class="photo-preview-box-compact">
+                            <img id="composer-preview-img" src="" alt="Cover Preview" class="composer-preview-thumb-sm">
+                            <div class="preview-meta-compact">
+                                <span class="preview-badge"><i class="bi bi-check-circle-fill text-cyan"></i> Photo Attached</span>
+                                <span id="preview-filename" class="preview-name">cover.jpg</span>
+                            </div>
+                            <button type="button" id="btn-remove-photo" class="btn-remove-photo-compact" title="Remove photo">
+                                <i class="bi bi-trash3-fill"></i> Remove
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- MICROSOFT WORD-STYLE WRITING STUDIO TOOLBAR -->
+            <!-- Collapsible Series Tray -->
+            <div id="composer-series-tray" class="composer-collapsible-tray d-none">
+                <div class="series-attach-box-compact">
+                    <div class="series-checkbox-row d-none">
+                        <label class="custom-checkbox">
+                            <input type="checkbox" id="form-is-series">
+                            <span class="checkmark"></span>
+                            <span class="cb-label">Series Mode</span>
+                        </label>
+                    </div>
+                    <div id="series-inputs-panel" class="series-inputs-panel-compact">
+                        <div class="series-inline-row">
+                            <div class="series-field-group series-title-group">
+                                <label class="tray-label"><i class="bi bi-collection-fill text-gold"></i> Series Name:</label>
+                                <input type="text" id="form-series-title" placeholder="e.g. The Spatial Matrix Papers" list="existing-series-datalist" class="cyber-input">
+                                <datalist id="existing-series-datalist"></datalist>
+                            </div>
+                            <div class="series-field-group series-part-group">
+                                <label class="tray-label">Part #:</label>
+                                <input type="number" id="form-series-part" min="1" max="99" value="1" class="cyber-input">
+                            </div>
+                            <button type="button" id="btn-close-series-tray" class="tray-close-btn align-self-end mb-1" title="Close series options">&times;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="word-editor-container">
                 <div class="word-toolbar hud-glass">
                     <!-- Text Styling: Bold, Italic, Underline, Strikethrough -->
@@ -555,7 +559,7 @@
                 </div>
             </div>
 
-            <div class="btn-group">
+            <div class="btn-group composer-action-row">
                 <button type="button" id="composer-cancel-btn" class="btn-secondary">CANCEL</button>
                 <button type="submit" id="composer-submit-btn" class="btn-primary">
                     <i class="bi bi-send-fill"></i>

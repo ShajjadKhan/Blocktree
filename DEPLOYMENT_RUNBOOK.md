@@ -1,7 +1,7 @@
-# BlockTree Editorial — Production Deployment Runbook & Operations Guide (v3.5)
+# BlockTree Editorial — Production Deployment Runbook & Operations Guide (v3.7)
 
 > [!IMPORTANT]
-> **System Status**: All features are implemented, hardened, smoke-tested, and deployed to the remote production environment. The database and uploads directory are **100% blank and pristine** for production launch. Codebase is synchronized with upstream Git `main` (commit `bd3b491`).
+> **System Status**: All features are implemented, hardened, smoke-tested, and deployed to the remote production environment. The database and uploads directory are **100% blank and pristine** for production launch. Codebase is synchronized with upstream Git `main`.
 
 ---
 
@@ -13,7 +13,7 @@ BlockTree is a spatial newsletter and branching discourse platform featuring a 2
 flowchart TD
     subgraph Clients["Clients & Devices"]
         Desktop["Desktop Browsers\n(Panzoom + 360° Joystick)"]
-        Mobile["Mobile Handsets\n(Responsive Deck, Zero Overlap)"]
+        Mobile["Mobile Handsets\n(Responsive Deck, Zero Overlap, 100dvh Composer)"]
     end
 
     subgraph SecurityShield["Defense-in-Depth Security Perimeter"]
@@ -49,11 +49,22 @@ flowchart TD
 
 ## 2. Inventory of Delivered Capabilities
 
-### A. Publishing & Creative Suite
-* **Photo Attachment & Live Preview**: Real file upload (PNG, JPG, WEBP) via drag-and-drop or file selector, with instant thumbnail preview and deletion controls.
-* **Loyal Customer & Verified Author Registration**: Authors can register unique handles, configure pen names, bios, and avatars, and earn verification badges and reputation scores.
+### A. Compact Publishing Suite & Expansive Mobile Writing Studio (v3.7)
+* **Streamlined Document Headline (Medium / Notion Style)**: Borderless headline input directly at the top of the composer modal (`#form-title`), eliminating bulky form wrappers and reclaiming ~40px of vertical space.
+* **Ultra-Compact Horizontal Metadata Strip (`.composer-meta-strip`)**:
+  * Consolidates Category, Matrix Connection (Parent Node), Author/Pen Name, and Collapsible Controls into a single 30px horizontal pill row.
+  * Replaces 300px+ of stacked form blocks with horizontal scrolling pills and live status indicators.
+* **Collapsible Mini-Trays (Cover Photo & Series)**:
+  * Photo uploader (drag & drop + URL input + live preview) and Series collection fields are concealed in lightweight collapsible mini-trays that only open on demand.
+  * Status badges on the pills (`Cover ✓`, `Part 1 ✓`) confirm attached state without occupying vertical screen real estate.
+* **Expansive Flex Writing Canvas (`flex: 1`)**:
+  * The article content textarea (`#form-content`) and Word Studio container dynamically stretch to fill 100% of all remaining vertical height on both desktop and mobile.
+* **Mobile & Virtual Keyboard Optimization (`100dvh`)**:
+  * On mobile viewports (`<= 768px`), the composer opens full-screen (`100vw x 100dvh`).
+  * Seamlessly responds to mobile virtual keyboard popping up without obscuring the text area or the bottom thumb-friendly action buttons.
 * **Microsoft Word-Style Typography Toolbar**:
   * Rich formatting buttons: **Bold** (`Ctrl+B`), *Italic* (`Ctrl+I`), <u>Underline</u>, <s>Strikethrough</s>, `Headers (H1-H3)`, Blockquotes, Code Snippets, Bullet Lists, and Numbered Lists.
+  * Horizontally swipeable with touch momentum scrolling on mobile devices.
   * **Interactive Emoji Picker**: Popover palette categorized into Smileys, Gestures, Tech, Celebration, and Writing symbols.
   * **Full-Screen Canvas Expansion**: Modal expand/compress toggle turning the composer into a Microsoft Word-style writing environment.
 
