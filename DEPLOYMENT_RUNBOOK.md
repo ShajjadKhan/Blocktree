@@ -197,35 +197,47 @@ ssh tserver@100.66.112.67 "bash /home/tserver/blocktree_project/backup_db.sh"
 # 0 2 * * * /bin/bash /home/tserver/blocktree_project/backup_db.sh > /dev/null 2>&1
 ```
 
-### 2. Admin Credentials & 2FA Recovery
-* **Default Superadmin Username**: `admin`
-* **Default Superadmin Key**: `Admin@Blocktree2026!`
-* **Changing Password**: Log in to the Admin Panel and click **"Password"** in the top navigation bar.
-* **If an IP/User is Locked Out**: Run this command to reset the lockout table:
-  ```bash
-  ssh tserver@100.66.112.67 "python3 -c \"import sqlite3; conn = sqlite3.connect('/home/tserver/blocktree_project/grid_data.db'); conn.cursor().execute('DELETE FROM admin_lockouts'); conn.commit(); print('Lockout table reset.')\""
-  ```
-* **If 2FA is Lost / Device Inaccessible**: Superadmin 2FA can be safely disabled from the command line:
-  ```bash
-  ssh tserver@100.66.112.67 "python3 -c \"import sqlite3; conn = sqlite3.connect('/home/tserver/blocktree_project/grid_data.db'); conn.cursor().execute('UPDATE admins SET totp_enabled=0, totp_secret=NULL WHERE username=\'admin\''); conn.commit(); print('2FA reset to single factor.')\""
-  ```
+### 2. Secret Admin Gateway & Security via Obscurity
+* **Public UI Shield**: The public "Admin" button has been completely removed from the header and user interface. There is zero visual clue that an admin system exists.
+* **Secret Keyword (after slash)**: `matrix-vault-9921`
+* **Direct Access URL**: `http://100.66.112.67:9999/matrix-vault-9921`
+* **Scanner Decoy Traps**: Automated scanning probes targeting `/admin`, `/administrator`, `/wp-admin`, `/backend`, or `/cpanel` are automatically logged to `admin_audit_logs` as `SCANNER_PROBE_BLOCKED` and return an innocent `404 Not Found`.
 
-### 3. Reviewing Live Security Logs
-```bash
-ssh tserver@100.66.112.67 "python3 -c \"import sqlite3; conn = sqlite3.connect('/home/tserver/blocktree_project/grid_data.db'); c = conn.cursor(); c.execute('SELECT created_at, event_type, status, admin_user, ip_address FROM admin_audit_logs ORDER BY id DESC LIMIT 15'); [print(r) for r in c.fetchall()]\""
-```
+### 3. Author & User Authentication Hardening
+* Author registration & login are protected with the same defense-in-depth architecture:
+  * Strict regex whitelist validation (`^[a-zA-Z0-9_]{3,30}$`).
+  * Pre-driver SQLi metacharacter drops (blocking quotes, comments, unions, semicolons).
+  * Anti-bot honeypot trap field (`hp_reg_token`, `hp_auth_token`).
+  * Constant-time PBKDF2 dummy hashing eliminating username enumeration.
+  * Dedicated persistent brute-force lockout table (`author_lockouts`) with 15-minute quarantines after 5 failures.
+  * Session HMAC device fingerprint binding against session hijacking.
+
+### 4. Client-Side Anti-Tamper & Browser Anti-Inspection Shield
+* Disables right-click context menu (`contextmenu` preventDefault).
+* Blocks all inspection keyboard shortcuts: `F12`, `Ctrl+Shift+I`, `Ctrl+Shift+J`, `Ctrl+Shift+C`, `Ctrl+Shift+K`, `Cmd+Option+I`, `Cmd+Option+J`, `Cmd+Option+C`, `Ctrl+U`, `Cmd+Option+U`, `Ctrl+S`.
+* Automatic console clearing and cyber-security warning output.
+
+### 5. Superadmin Credentials & Recovery
+* **Superadmin Username**: `admin`
+* **Superadmin Key**: `Admin@Blocktree2026!`
+* **Resetting Lockout Table**:
+  ```bash
+  ssh tserver@100.66.112.67 "python3 -c \"import sqlite3; conn = sqlite3.connect('/home/tserver/blocktree_project/grid_data.db'); conn.cursor().execute('DELETE FROM admin_lockouts'); conn.cursor().execute('DELETE FROM author_lockouts'); conn.commit(); print('Lockout tables reset.')\""
+  ```
+* **Resetting Database to Clean Blank State**:
+  ```bash
+  ssh tserver@100.66.112.67 "bash /home/tserver/blocktree_project/reset_db_blank.sh"
+  ```
 
 ---
 
 ## 7. Verification Checklist
 
 - [x] Application listening on `0.0.0.0:9999` with HTTP 200 OK.
-- [x] SQLite database integrity check verified (`PRAGMA integrity_check` -> `ok`).
-- [x] 20 articles and 7 verified authors seeded and functioning.
-- [x] Photo upload directory `/static/uploads/` writable and serving assets.
-- [x] SQL injection boundary filter drops attack payloads (`' OR 1=1`, unions, comments).
-- [x] Bot honeypot trap active and dropping automated requests.
-- [x] 2FA TOTP RFC 6238 key generation and single-use emergency backup keys operational.
-- [x] Mobile UI/UX zero-overlap responsive layout verified.
-- [x] Git repository synchronized (`origin/main` commit `cd518a8`).
-- [x] Hot backup system operational.
+- [x] Public admin button removed from header navigation.
+- [x] Secret admin gateway active only on `/matrix-vault-9921`.
+- [x] Common paths (`/admin`, `/wp-admin`, `/backend`) return 404 and log scanner probes.
+- [x] Author registration and login hardened with SQLi regex shield, honeypots, and persistent lockouts.
+- [x] Browser inspect, right-click, F12, and DevTools shortcuts blocked.
+- [x] Database is 100% blank and ready for production launch.
+- [x] Git repository synchronized (`origin/main` commit `d5edf5a`).
