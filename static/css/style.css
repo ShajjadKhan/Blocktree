@@ -838,49 +838,295 @@ body.editorial-body {
     box-shadow: 0 0 10px var(--cyan-glow);
 }
 
-/* Floating Controls (Bottom Right) */
-#controls-panel {
+/* ==========================================================================
+   Spatial Matrix Navigation Deck (360° Joystick & Precision Zoom HUD)
+   ========================================================================== */
+#spatial-nav-deck {
     position: fixed;
     bottom: 20px;
     right: 20px;
+    z-index: 100;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
-    padding: 8px;
-    z-index: 100;
+    padding: 10px 10px 8px;
+    border-radius: 18px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: rgba(6, 11, 23, 0.88);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 243, 255, 0.15);
+    user-select: none;
+    -webkit-user-select: none;
+    width: 136px;
 }
 
-#controls-panel button {
-    width: 38px;
-    height: 38px;
-    border-radius: 8px;
+/* Joystick Container */
+.joystick-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.joystick-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+    font-size: 9px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.joy-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--cyan);
+}
+
+.joy-speed-tag {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.joy-speed-tag.active {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    background: rgba(0, 243, 255, 0.15);
+    font-weight: 700;
+}
+
+/* Joystick Circular Base */
+.joystick-base {
+    position: relative;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 243, 255, 0.04) 0%, rgba(5, 10, 22, 0.95) 75%);
+    border: 1.5px solid rgba(0, 243, 255, 0.35);
+    box-shadow: inset 0 0 18px rgba(0, 243, 255, 0.15), 0 0 15px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    cursor: grab;
+    overflow: hidden;
+}
+
+.joystick-base:active {
+    cursor: grabbing;
+    border-color: var(--cyan);
+    box-shadow: inset 0 0 25px rgba(0, 243, 255, 0.25), 0 0 20px rgba(0, 243, 255, 0.3);
+}
+
+/* Reticle Lines & Concentric Guide Ring */
+.joy-axis-h {
+    position: absolute;
+    width: 82%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.25), transparent);
+    pointer-events: none;
+}
+
+.joy-axis-v {
+    position: absolute;
+    height: 82%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, rgba(0, 243, 255, 0.25), transparent);
+    pointer-events: none;
+}
+
+.joy-ring-inner {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 1px dashed rgba(0, 243, 255, 0.22);
+    pointer-events: none;
+}
+
+/* Cardinal Buttons (N, E, S, W) */
+.joy-cardinal {
+    position: absolute;
+    background: transparent;
+    border: none;
+    color: rgba(0, 243, 255, 0.5);
+    font-size: 8px;
+    cursor: pointer;
+    padding: 3px;
+    line-height: 1;
+    z-index: 10;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.joy-cardinal:hover {
+    color: #fff;
+    text-shadow: 0 0 8px var(--cyan);
+    transform: scale(1.35);
+}
+
+.joy-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.joy-n:hover { transform: translateX(-50%) scale(1.35); }
+
+.joy-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.joy-s:hover { transform: translateX(-50%) scale(1.35); }
+
+.joy-e { right: 2px; top: 50%; transform: translateY(-50%); }
+.joy-e:hover { transform: translateY(-50%) scale(1.35); }
+
+.joy-w { left: 2px; top: 50%; transform: translateY(-50%); }
+.joy-w:hover { transform: translateY(-50%) scale(1.35); }
+
+/* Vector Beam */
+.joy-vector-beam {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 2px;
+    width: 0px;
+    background: linear-gradient(90deg, rgba(0, 243, 255, 0.8), rgba(0, 243, 255, 0.2));
+    transform-origin: 0 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 8;
+}
+
+/* Draggable Center Thumbstick Puck */
+.joystick-thumb {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1e293b, #090e1a);
+    border: 2px solid var(--cyan);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.4), inset 0 0 8px rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 12;
+    cursor: grab;
+    touch-action: none;
+}
+
+.joystick-thumb.active {
+    cursor: grabbing;
+    background: radial-gradient(circle at 35% 35%, #0e7490, #042f2e);
+    border-color: #fff;
+    box-shadow: 0 0 20px var(--cyan-glow), inset 0 0 10px rgba(0, 243, 255, 0.5);
+}
+
+.thumb-grips {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px dashed rgba(0, 243, 255, 0.4);
+    pointer-events: none;
+}
+
+.thumb-core-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    pointer-events: none;
+}
+
+/* Controls Deck (Zoom + - and Recenter) */
+.nav-deck-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.deck-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(0, 243, 255, 0.25);
     color: var(--cyan);
-    font-size: 16px;
+    font-size: 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
-#controls-panel button:hover {
+.deck-btn:hover {
     background: var(--cyan);
     color: #000;
-    box-shadow: 0 0 15px var(--cyan-glow);
+    box-shadow: 0 0 12px var(--cyan-glow);
+}
+
+.deck-btn:active {
+    transform: scale(0.92);
+}
+
+.deck-btn-recenter {
+    color: var(--gold);
+    border-color: rgba(255, 215, 0, 0.3);
+}
+
+.deck-btn-recenter:hover {
+    background: var(--gold);
+    color: #000;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
+}
+
+.zoom-level-display {
+    flex: 1;
+    height: 28px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.zoom-level-display:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0, 243, 255, 0.1);
 }
 
 /* Primary Action: Join/Publish Button (Bottom Right) */
 #add-btn {
     position: fixed;
     bottom: 20px;
-    right: 76px;
+    right: 172px;
     background: linear-gradient(135deg, #00f3ff, #3b82f6);
     color: #000;
     border: none;
     border-radius: 12px;
-    padding: 12px 24px;
+    padding: 12px 22px;
     font-family: var(--font-heading);
     font-weight: 800;
     font-size: 12px;
@@ -2353,10 +2599,16 @@ textarea#form-content {
         width: 100vw;
         max-width: 100vw;
     }
+    #spatial-nav-deck {
+        bottom: 12px;
+        right: 12px;
+        transform: scale(0.85);
+        transform-origin: bottom right;
+    }
     #add-btn {
-        right: 70px;
+        right: 135px;
         bottom: 14px;
-        padding: 9px 16px;
-        font-size: 10.5px;
+        padding: 9px 14px;
+        font-size: 10px;
     }
 }

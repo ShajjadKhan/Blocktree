@@ -128,11 +128,53 @@
         </div>
     </div>
 
-    <!-- Floating Canvas Controls (Bottom Right) -->
-    <div id="controls-panel" class="hud-glass">
-        <button id="ctrl-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
-        <button id="ctrl-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
-        <button id="ctrl-reset" title="Recenter Matrix"><i class="bi bi-crosshair"></i></button>
+    <!-- Spatial Matrix Navigation Deck (360° Joystick & Precision Zoom HUD) -->
+    <div id="spatial-nav-deck" class="hud-glass">
+        <!-- 360-Degree Flight Joystick -->
+        <div class="joystick-wrapper">
+            <div class="joystick-header">
+                <span class="joy-label"><i class="bi bi-compass"></i> 360° NAV</span>
+                <span id="joy-coord-indicator" class="joy-speed-tag">360°</span>
+            </div>
+            
+            <div id="joystick-base" class="joystick-base" title="Drag thumbstick 360° to pan smoothly across matrix">
+                <!-- Cardinal Quick Direction Nudge Buttons -->
+                <button type="button" class="joy-cardinal joy-n" data-dir="N" title="Pan North (Up)">▲</button>
+                <button type="button" class="joy-cardinal joy-e" data-dir="E" title="Pan East (Right)">►</button>
+                <button type="button" class="joy-cardinal joy-s" data-dir="S" title="Pan South (Down)">▼</button>
+                <button type="button" class="joy-cardinal joy-w" data-dir="W" title="Pan West (Left)">◄</button>
+
+                <!-- Reticle crosshair & guide rings -->
+                <div class="joy-axis-h"></div>
+                <div class="joy-axis-v"></div>
+                <div class="joy-ring-inner"></div>
+
+                <!-- Active vector beam from center to thumbstick -->
+                <div id="joy-vector-beam" class="joy-vector-beam"></div>
+
+                <!-- Draggable 360° Center Thumbstick -->
+                <div id="joystick-thumb" class="joystick-thumb">
+                    <div class="thumb-grips"></div>
+                    <div class="thumb-core-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zoom & Viewport Precision Controls -->
+        <div class="nav-deck-controls">
+            <button type="button" id="ctrl-zoom-in" class="deck-btn" title="Zoom In (+25%)">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+            <div id="zoom-level-pill" class="zoom-level-display" title="Click to Reset 100% Zoom">
+                <span id="zoom-level-text">80%</span>
+            </div>
+            <button type="button" id="ctrl-zoom-out" class="deck-btn" title="Zoom Out (-20%)">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+            <button type="button" id="ctrl-reset" class="deck-btn deck-btn-recenter" title="Recenter Camera on Matrix">
+                <i class="bi bi-crosshair"></i>
+            </button>
+        </div>
     </div>
 
     <!-- Primary Action: Write / Branch (Bottom Right) -->

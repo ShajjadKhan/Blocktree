@@ -12,7 +12,27 @@ const panzoom = Panzoom(canvasElem, {
     cursor: 'grab'
 });
 
-canvasElem.parentElement.addEventListener("wheel", panzoom.zoomWithWheel);
+// Stabilized Wheel & Gesture Handler (Google Maps / Figma standard)
+canvasElem.parentElement.addEventListener("wheel", (e) => {
+    // If scrolling inside any drawer, modal, or dropdown, allow normal element scroll
+    if (e.target.closest('.reader-scrollable, .cyber-modal, .leader-scroll, .search-dropdown, .emoji-grid')) {
+        return;
+    }
+    
+    e.preventDefault();
+    
+    if (e.ctrlKey) {
+        // Trackpad pinch-to-zoom or Ctrl + mouse wheel: Smooth focal zoom centered on cursor
+        const currentScale = panzoom.getScale();
+        const factor = Math.exp(-e.deltaY * 0.008);
+        const targetScale = Math.min(3.5, Math.max(0.08, currentScale * factor));
+        panzoom.zoomToPoint(targetScale, { clientX: e.clientX, clientY: e.clientY });
+        updateZoomDisplay(targetScale);
+    } else {
+        // Trackpad two-finger pan or regular mouse wheel: Smoothly pan matrix
+        panzoom.pan(-e.deltaX, -e.deltaY, { relative: true });
+    }
+}, { passive: false });
 
 // Sound Synthesizer
 let soundEnabled = localStorage.getItem('blocktree_sound') !== 'false';
@@ -112,6 +132,7 @@ function panToCoordinate(targetX, targetY, scale = 0.85) {
     
     panzoom.zoom(scale, { animate: true });
     panzoom.pan(panX, panY, { animate: true });
+    updateZoomDisplay(scale);
 }
 
 function resetView() {
@@ -1433,15 +1454,298 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Canvas Controls
-document.getElementById('ctrl-zoom-in').addEventListener('click', () => {
-    playSound('click'); panzoom.zoomIn({ animate: true });
+// ==========================================================================
+// Precision Zoom Workflow & Live Display (+ / - / 100% Reset)
+// ==========================================================================
+function updateZoomDisplay(scale) {
+    const s = scale || (panzoom ? panzoom.getScale() : 0.80);
+    const pct = Math.round(s * 100);
+    const textElem = document.getElementById('zoom-level-text');
+    if (textElem) {
+        textElem.textContent = `${pct}%`;
+    }
+}
+
+// Center-focal Zoom Engine (Ensures zoom is anchored on viewport center)
+function smoothZoom(direction) {
+    playSound('click');
+    const container = document.getElementById('canvas-container');
+    const center = {
+        clientX: container ? container.clientWidth / 2 : window.innerWidth / 2,
+        clientY: container ? container.clientHeight / 2 : window.innerHeight / 2
+    };
+    const currentScale = panzoom.getScale();
+    const factor = direction === 'in' ? 1.25 : 0.80;
+    const targetScale = Math.min(3.5, Math.max(0.08, currentScale * factor));
+    panzoom.zoomToPoint(targetScale, center, { animate: true });
+    updateZoomDisplay(targetScale);
+}
+
+// Hold-to-zoom and click-to-zoom engine for + and - buttons
+function attachZoomBtnEvents(btnId, direction) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    
+    let pressTimer = null;
+    let holdInterval = null;
+    let hasHeld = false;
+
+    const onPointerDown = (e) => {
+        e.preventDefault();
+        hasHeld = false;
+        pressTimer = setTimeout(() => {
+            hasHeld = true;
+            holdInterval = setInterval(() => {
+                const container = document.getElementById('canvas-container');
+                const center = {
+                    clientX: container ? container.clientWidth / 2 : window.innerWidth / 2,
+                    clientY: container ? container.clientHeight / 2 : window.innerHeight / 2
+                };
+                const cur = panzoom.getScale();
+                const factor = direction === 'in' ? 1.04 : 0.96;
+                const targetScale = Math.min(3.5, Math.max(0.08, cur * factor));
+                panzoom.zoomToPoint(targetScale, center, { animate: false });
+                updateZoomDisplay(targetScale);
+            }, 35);
+        }, 280);
+    };
+
+    const onPointerUp = (e) => {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+        if (!hasHeld) {
+            smoothZoom(direction);
+        }
+    };
+
+    const onPointerCancel = () => {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+    };
+
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointerup', onPointerUp);
+    btn.addEventListener('pointerleave', onPointerCancel);
+    btn.addEventListener('pointercancel', onPointerCancel);
+}
+
+// Reset zoom to 100% on pill click
+const zoomPill = document.getElementById('zoom-level-pill');
+if (zoomPill) {
+    zoomPill.addEventListener('click', () => {
+        playSound('click');
+        const container = document.getElementById('canvas-container');
+        const center = {
+            clientX: container ? container.clientWidth / 2 : window.innerWidth / 2,
+            clientY: container ? container.clientHeight / 2 : window.innerHeight / 2
+        };
+        panzoom.zoomToPoint(1.0, center, { animate: true });
+        updateZoomDisplay(1.0);
+        showToast("🔍 Zoom reset to 100%");
+    });
+}
+
+// Recenter camera on matrix
+const ctrlResetBtn = document.getElementById('ctrl-reset');
+if (ctrlResetBtn) {
+    ctrlResetBtn.addEventListener('click', () => {
+        playSound('click');
+        resetView();
+        showToast("🎯 Recenter camera on matrix");
+    });
+}
+
+// Attach hold/click events for zoom buttons
+attachZoomBtnEvents('ctrl-zoom-in', 'in');
+attachZoomBtnEvents('ctrl-zoom-out', 'out');
+
+// Panzoom scale event listeners
+canvasElem.addEventListener('panzoomzoom', (e) => {
+    if (e && e.detail && e.detail.scale) updateZoomDisplay(e.detail.scale);
 });
-document.getElementById('ctrl-zoom-out').addEventListener('click', () => {
-    playSound('click'); panzoom.zoomOut({ animate: true });
+canvasElem.addEventListener('panzoomreset', (e) => {
+    if (e && e.detail && e.detail.scale) updateZoomDisplay(e.detail.scale);
 });
-document.getElementById('ctrl-reset').addEventListener('click', () => {
-    playSound('click'); resetView();
+
+// ==========================================================================
+// 360° Virtual Flight Joystick Controller
+// ==========================================================================
+const joystickBase = document.getElementById('joystick-base');
+const joystickThumb = document.getElementById('joystick-thumb');
+const joyVectorBeam = document.getElementById('joy-vector-beam');
+const joyCoordIndicator = document.getElementById('joy-coord-indicator');
+
+let isJoyDragging = false;
+let joyAnimFrameId = null;
+let joySpeed = 0;
+let joyAngle = 0;
+
+const JOY_MAX_RADIUS = 32; // Limit thumb movement inside circle
+const JOY_MAX_SPEED = 24;  // Max pan speed in pixels per frame
+
+function initJoystick() {
+    if (!joystickBase || !joystickThumb) return;
+
+    function getBaseCenter() {
+        const rect = joystickBase.getBoundingClientRect();
+        return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+        };
+    }
+
+    function onPointerDown(e) {
+        e.preventDefault();
+        isJoyDragging = true;
+        try {
+            joystickThumb.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        
+        joystickThumb.classList.add('active');
+        joystickThumb.style.transition = 'none';
+        if (joyVectorBeam) joyVectorBeam.style.opacity = '1';
+
+        handlePointerMove(e);
+        startJoyAnimation();
+    }
+
+    function handlePointerMove(e) {
+        if (!isJoyDragging) return;
+        const center = getBaseCenter();
+        const rawDx = e.clientX - center.x;
+        const rawDy = e.clientY - center.y;
+        const distance = Math.hypot(rawDx, rawDy);
+        joyAngle = Math.atan2(rawDy, rawDx);
+
+        const clampedDist = Math.min(distance, JOY_MAX_RADIUS);
+        const thumbX = Math.cos(joyAngle) * clampedDist;
+        const thumbY = Math.sin(joyAngle) * clampedDist;
+
+        // Position thumbstick knob
+        joystickThumb.style.transform = `translate(${thumbX}px, ${thumbY}px)`;
+
+        // Deadzone of 3px
+        if (clampedDist > 3) {
+            const norm = (clampedDist - 3) / (JOY_MAX_RADIUS - 3);
+            joySpeed = Math.pow(norm, 1.35) * JOY_MAX_SPEED;
+
+            // Heading in degrees: 0° = East, 90° = South, 180° = West, 270° = North
+            const deg = Math.round((joyAngle * 180 / Math.PI) + 360) % 360;
+            if (joyCoordIndicator) {
+                joyCoordIndicator.textContent = `${deg}°`;
+                joyCoordIndicator.classList.add('active');
+            }
+
+            if (joyVectorBeam) {
+                joyVectorBeam.style.width = `${clampedDist}px`;
+                joyVectorBeam.style.transform = `rotate(${joyAngle * 180 / Math.PI}deg)`;
+            }
+        } else {
+            joySpeed = 0;
+            if (joyCoordIndicator) joyCoordIndicator.textContent = `0°`;
+            if (joyVectorBeam) joyVectorBeam.style.width = '0px';
+        }
+    }
+
+    function onPointerUp(e) {
+        if (!isJoyDragging) return;
+        isJoyDragging = false;
+        try {
+            joystickThumb.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+
+        joystickThumb.classList.remove('active');
+        // Snappy spring back to center
+        joystickThumb.style.transition = 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        joystickThumb.style.transform = 'translate(0px, 0px)';
+
+        if (joyVectorBeam) {
+            joyVectorBeam.style.opacity = '0';
+            joyVectorBeam.style.width = '0px';
+        }
+        if (joyCoordIndicator) {
+            joyCoordIndicator.textContent = `360°`;
+            joyCoordIndicator.classList.remove('active');
+        }
+
+        joySpeed = 0;
+        stopJoyAnimation();
+    }
+
+    function startJoyAnimation() {
+        if (joyAnimFrameId) return;
+        function step() {
+            if (isJoyDragging && joySpeed > 0.1) {
+                // Moving camera:
+                // If stick is pushed UP (joyAngle ~ -PI/2), camera moves UP, so canvas moves DOWN (+panY)
+                // If stick is pushed RIGHT (joyAngle ~ 0), camera moves RIGHT, so canvas moves LEFT (-panX)
+                const moveX = -Math.cos(joyAngle) * joySpeed;
+                const moveY = -Math.sin(joyAngle) * joySpeed;
+                panzoom.pan(moveX, moveY, { relative: true });
+            }
+            if (isJoyDragging) {
+                joyAnimFrameId = requestAnimationFrame(step);
+            } else {
+                joyAnimFrameId = null;
+            }
+        }
+        joyAnimFrameId = requestAnimationFrame(step);
+    }
+
+    function stopJoyAnimation() {
+        if (joyAnimFrameId) {
+            cancelAnimationFrame(joyAnimFrameId);
+            joyAnimFrameId = null;
+        }
+    }
+
+    joystickThumb.addEventListener('pointerdown', onPointerDown);
+    joystickBase.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    // Cardinal quick-nudge buttons (▲, ►, ▼, ◄)
+    document.querySelectorAll('.joy-cardinal').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('click');
+            const dir = btn.getAttribute('data-dir');
+            const stepDist = 180;
+            let px = 0, py = 0;
+            if (dir === 'N') py = stepDist;
+            else if (dir === 'S') py = -stepDist;
+            else if (dir === 'E') px = -stepDist;
+            else if (dir === 'W') px = stepDist;
+            panzoom.pan(px, py, { relative: true, animate: true });
+        });
+    });
+}
+
+// Arrow / WASD keys for matrix panning when not typing
+window.addEventListener('keydown', (e) => {
+    const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (composerModal && !composerModal.classList.contains('d-none')) return;
+    if (registerModal && !registerModal.classList.contains('d-none')) return;
+    if (loginModal && !loginModal.classList.contains('d-none')) return;
+
+    const panStep = e.shiftKey ? 260 : 130;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        panzoom.pan(0, panStep, { relative: true, animate: true });
+    } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        panzoom.pan(0, -panStep, { relative: true, animate: true });
+    } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        panzoom.pan(panStep, 0, { relative: true, animate: true });
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        panzoom.pan(-panStep, 0, { relative: true, animate: true });
+    } else if (e.key === '+' || e.key === '=') {
+        smoothZoom('in');
+    } else if (e.key === '-' || e.key === '_') {
+        smoothZoom('out');
+    } else if (e.key === '0') {
+        resetView();
+    }
 });
 
 // Deep Linking Check
@@ -1482,6 +1786,8 @@ document.addEventListener('keydown', (e) => {
 
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
+    initJoystick();
+    updateZoomDisplay();
     await checkAuth();
     await loadMatrix(true);
     await checkDeepLink();
