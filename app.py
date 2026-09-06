@@ -3,13 +3,16 @@ import sqlite3
 import secrets
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import wraps
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'blocktree-cyber-editorial-secret-2026')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 DB_PATH = 'grid_data.db'
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
@@ -24,11 +27,61 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+# ==========================================================================
+# BRUTE-FORCE PROTECTION & RATE LIMITING FOR ADMIN ACCESS
+# ==========================================================================
+FAILED_ADMIN_ATTEMPTS = {}  # key: ip_or_username -> {"count": int, "lockout_until": datetime, "first_attempt": datetime}
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+
+def check_admin_rate_limit(key):
+    now = datetime.now()
+    if key in FAILED_ADMIN_ATTEMPTS:
+        entry = FAILED_ADMIN_ATTEMPTS[key]
+        if entry.get('lockout_until') and entry['lockout_until'] > now:
+            remaining = int((entry['lockout_until'] - now).total_seconds())
+            mins = max(1, remaining // 60)
+            return False, f"Security Lockout Active: Too many failed attempts. Try again in {mins} minute(s)."
+        if (now - entry.get('first_attempt', now)).total_seconds() > (LOCKOUT_MINUTES * 60):
+            FAILED_ADMIN_ATTEMPTS[key] = {"count": 0, "first_attempt": now}
+    return True, None
+
+def record_failed_admin_attempt(key):
+    now = datetime.now()
+    if key not in FAILED_ADMIN_ATTEMPTS:
+        FAILED_ADMIN_ATTEMPTS[key] = {"count": 1, "first_attempt": now}
+    else:
+        FAILED_ADMIN_ATTEMPTS[key]["count"] += 1
+        if FAILED_ADMIN_ATTEMPTS[key]["count"] >= MAX_FAILED_ATTEMPTS:
+            FAILED_ADMIN_ATTEMPTS[key]["lockout_until"] = now + timedelta(minutes=LOCKOUT_MINUTES)
+
+def clear_admin_attempts(key):
+    if key in FAILED_ADMIN_ATTEMPTS:
+        del FAILED_ADMIN_ATTEMPTS[key]
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        admin_id = session.get('admin_id')
+        if not admin_id:
+            return jsonify({"error": "Admin access required. Please authenticate."}), 401
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT id, username, role FROM admins WHERE id = ?", (admin_id,))
+        admin = c.fetchone()
+        conn.close()
+        if not admin:
+            session.pop('admin_id', None)
+            session.pop('admin_username', None)
+            return jsonify({"error": "Invalid or expired admin session."}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Authors table (Verified customer/author registration system)
+    # 1. Authors table (Verified customer/author registration system)
     c.execute('''CREATE TABLE IF NOT EXISTS authors (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
@@ -40,10 +93,40 @@ def init_db():
         badge TEXT DEFAULT 'Verified Author',
         is_verified INTEGER DEFAULT 1,
         reputation_score INTEGER DEFAULT 100,
+        is_banned INTEGER DEFAULT 0,
+        ban_reason TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )''')
+
+    # Check and add missing columns to authors table
+    c.execute("PRAGMA table_info(authors)")
+    author_cols = [row[1] for row in c.fetchall()]
+    if 'is_banned' not in author_cols:
+        c.execute("ALTER TABLE authors ADD COLUMN is_banned INTEGER DEFAULT 0")
+    if 'ban_reason' not in author_cols:
+        c.execute("ALTER TABLE authors ADD COLUMN ban_reason TEXT")
     
-    # Nodes table
+    # 2. Admins table (High Security Moderation System)
+    c.execute('''CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'superadmin',
+        failed_attempts INTEGER DEFAULT 0,
+        locked_until DATETIME,
+        last_login DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Seed default superadmin if not exists
+    c.execute("SELECT id FROM admins WHERE username = 'admin'")
+    if not c.fetchone():
+        default_pw_hash = generate_password_hash("Admin@Blocktree2026!", method='pbkdf2:sha256:600000')
+        c.execute('''INSERT INTO admins (username, password_hash, role) VALUES (?, ?, ?)''',
+                  ('admin', default_pw_hash, 'superadmin'))
+        print("Initialized default superadmin account ('admin').")
+
+    # 3. Nodes table
     c.execute('''CREATE TABLE IF NOT EXISTS nodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -66,6 +149,10 @@ def init_db():
         series_title TEXT,
         series_part INTEGER,
         is_verified_author INTEGER DEFAULT 0,
+        is_revoked INTEGER DEFAULT 0,
+        revoked_reason TEXT,
+        revoked_at DATETIME,
+        revoked_by TEXT,
         created_at DATETIME
     )''')
     
@@ -87,7 +174,11 @@ def init_db():
         ('author_id', 'INTEGER'),
         ('series_title', 'TEXT'),
         ('series_part', 'INTEGER'),
-        ('is_verified_author', 'INTEGER DEFAULT 0')
+        ('is_verified_author', 'INTEGER DEFAULT 0'),
+        ('is_revoked', 'INTEGER DEFAULT 0'),
+        ('revoked_reason', 'TEXT'),
+        ('revoked_at', 'DATETIME'),
+        ('revoked_by', 'TEXT')
     ]
     for col_name, col_type in missing_cols:
         if col_name not in columns:
@@ -202,6 +293,10 @@ fix_overlapping_nodes()
 def home():
     return render_template('index.html')
 
+@app.route('/admin')
+def admin_portal():
+    return render_template('index.html', open_admin=True)
+
 # ==========================================================================
 # PHOTO ATTACHMENT / UPLOAD API
 # ==========================================================================
@@ -302,6 +397,9 @@ def login_author():
     if not author or not check_password_hash(author['password_hash'], password):
         return jsonify({"error": "Invalid username/email or password."}), 401
         
+    if author['is_banned']:
+        return jsonify({"error": f"This author account is suspended. Reason: {author['ban_reason'] or 'Violation of community guidelines'}."}), 403
+
     session['author_id'] = author['id']
     return jsonify({
         "status": "success",
@@ -345,13 +443,14 @@ def get_current_author():
         FROM nodes 
         WHERE author_id = ? AND series_title IS NOT NULL AND series_title != ''
     ''', (author_id,))
-    series_list = [r[0] for r in c.fetchall()]
+    series_rows = c.fetchall()
+    series_list = [r[0] for r in series_rows]
     
     # Query articles count and claps count
     c.execute('''
         SELECT COUNT(id), COALESCE(SUM(claps), 0) 
         FROM nodes 
-        WHERE author_id = ?
+        WHERE author_id = ? AND is_revoked = 0
     ''', (author_id,))
     art_count, total_claps = c.fetchone()
     conn.close()
@@ -367,6 +466,7 @@ def get_current_author():
             "avatar": author['avatar'],
             "badge": author['badge'],
             "is_verified": bool(author['is_verified']),
+            "is_banned": bool(author['is_banned']),
             "reputation_score": author['reputation_score'],
             "series": series_list,
             "article_count": art_count,
@@ -387,12 +487,12 @@ def get_author_portfolio(author_id):
         conn.close()
         return jsonify({"error": "Author not found."}), 404
         
-    # Get all articles written by this author
+    # Get all non-revoked articles written by this author
     c.execute('''
         SELECT id, title, category, text, read_time, claps, cover_image, series_title, series_part, created_at,
-               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = nodes.id) as reply_count
+               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = nodes.id AND r.is_revoked = 0) as reply_count
         FROM nodes
-        WHERE author_id = ?
+        WHERE author_id = ? AND is_revoked = 0
         ORDER BY id DESC
     ''', (author_id,))
     articles = [dict(r) for r in c.fetchall()]
@@ -425,6 +525,7 @@ def get_author_portfolio(author_id):
             "avatar": author['avatar'],
             "badge": author['badge'],
             "is_verified": bool(author['is_verified']),
+            "is_banned": bool(author['is_banned']),
             "reputation_score": author['reputation_score'],
             "total_claps": total_claps,
             "article_count": len(articles)
@@ -442,12 +543,327 @@ def get_series_parts(series_title):
                auth.username, auth.badge, auth.is_verified
         FROM nodes n
         LEFT JOIN authors auth ON n.author_id = auth.id
-        WHERE LOWER(n.series_title) = LOWER(?)
+        WHERE LOWER(n.series_title) = LOWER(?) AND n.is_revoked = 0
         ORDER BY n.series_part ASC, n.id ASC
     ''', (series_title,))
     parts = [dict(r) for r in c.fetchall()]
     conn.close()
     return jsonify({"series_title": series_title, "parts": parts})
+
+# ==========================================================================
+# SECURE ADMIN AUTHENTICATION & MODERATION DASHBOARD API
+# ==========================================================================
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    data = request.json or {}
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '').strip()
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+
+    # 1. Check Rate Limit & Account Lockout
+    allowed, lock_msg = check_admin_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": lock_msg}), 429
+
+    allowed_user, lock_user_msg = check_admin_rate_limit(username)
+    if not allowed_user:
+        return jsonify({"error": lock_user_msg}), 429
+
+    if not username or not password:
+        return jsonify({"error": "Admin credentials required."}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM admins WHERE username = ?", (username,))
+    admin = c.fetchone()
+
+    if not admin or not check_password_hash(admin['password_hash'], password):
+        record_failed_admin_attempt(ip)
+        record_failed_admin_attempt(username)
+        # Update failed attempts in DB
+        if admin:
+            c.execute("UPDATE admins SET failed_attempts = failed_attempts + 1 WHERE id = ?", (admin['id'],))
+            conn.commit()
+        conn.close()
+        
+        attempts_left = MAX_FAILED_ATTEMPTS - FAILED_ADMIN_ATTEMPTS.get(ip, {}).get('count', 0)
+        warning = f" (Attempts remaining before temporary lockout: {max(0, attempts_left)})" if attempts_left > 0 else ""
+        return jsonify({"error": f"Invalid admin credentials.{warning}"}), 401
+
+    # Successful authentication: clear counters
+    clear_admin_attempts(ip)
+    clear_admin_attempts(username)
+    c.execute("UPDATE admins SET failed_attempts = 0, last_login = datetime('now') WHERE id = ?", (admin['id'],))
+    conn.commit()
+    conn.close()
+
+    session['admin_id'] = admin['id']
+    session['admin_username'] = admin['username']
+    session['admin_role'] = admin['role']
+    session['admin_token'] = secrets.token_hex(32)
+
+    return jsonify({
+        "status": "success",
+        "admin": {
+            "id": admin['id'],
+            "username": admin['username'],
+            "role": admin['role'],
+            "last_login": admin['last_login']
+        }
+    })
+
+@app.route('/api/admin/logout', methods=['POST'])
+def admin_logout():
+    session.pop('admin_id', None)
+    session.pop('admin_username', None)
+    session.pop('admin_role', None)
+    session.pop('admin_token', None)
+    return jsonify({"status": "success", "message": "Admin session terminated."})
+
+@app.route('/api/admin/me', methods=['GET'])
+def admin_me():
+    admin_id = session.get('admin_id')
+    if not admin_id:
+        return jsonify({"logged_in": False})
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, role, last_login FROM admins WHERE id = ?", (admin_id,))
+    admin = c.fetchone()
+    conn.close()
+    if not admin:
+        session.pop('admin_id', None)
+        return jsonify({"logged_in": False})
+    return jsonify({"logged_in": True, "admin": dict(admin)})
+
+@app.route('/api/admin/dashboard', methods=['GET'])
+@admin_required
+def admin_dashboard():
+    """Returns comprehensive moderation data and telemetry for the admin control center."""
+    conn = get_db()
+    c = conn.cursor()
+
+    # 1. Node counts & statistics
+    c.execute("SELECT COUNT(*) FROM nodes")
+    total_nodes = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM nodes WHERE is_revoked = 0")
+    active_nodes = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM nodes WHERE is_revoked = 1")
+    revoked_nodes = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM authors")
+    total_authors = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM authors WHERE is_verified = 1")
+    verified_authors = c.fetchone()[0]
+
+    c.execute("SELECT COALESCE(SUM(claps), 0) FROM nodes")
+    total_claps = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(DISTINCT series_title) FROM nodes WHERE series_title IS NOT NULL AND series_title != ''")
+    total_series = c.fetchone()[0]
+
+    # 2. Retrieve all nodes with moderation state and creator metadata
+    c.execute('''
+        SELECT n.id, n.title, n.name, n.category, n.read_time, n.claps, n.cover_image,
+               n.parent_id, n.ip, n.x, n.y, n.created_at, n.is_revoked, n.revoked_reason,
+               n.revoked_at, n.revoked_by, n.series_title, n.series_part,
+               n.author_id, auth.username as author_username, auth.pen_name as author_pen_name,
+               auth.badge as author_badge, auth.is_verified as author_is_verified,
+               auth.is_banned as author_is_banned,
+               par.title as parent_title, par.name as parent_author,
+               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id) as reply_count
+        FROM nodes n
+        LEFT JOIN nodes par ON n.parent_id = par.id
+        LEFT JOIN authors auth ON n.author_id = auth.id
+        ORDER BY n.id DESC
+    ''')
+    all_nodes = [dict(r) for r in c.fetchall()]
+
+    # 3. Retrieve all authors
+    c.execute('''
+        SELECT a.id, a.username, a.pen_name, a.email, a.bio, a.avatar, a.badge,
+               a.is_verified, a.is_banned, a.ban_reason, a.reputation_score, a.created_at,
+               (SELECT COUNT(*) FROM nodes n WHERE n.author_id = a.id) as article_count,
+               (SELECT COALESCE(SUM(claps), 0) FROM nodes n WHERE n.author_id = a.id) as total_claps
+        FROM authors a
+        ORDER BY a.id DESC
+    ''')
+    all_authors = [dict(r) for r in c.fetchall()]
+
+    conn.close()
+
+    return jsonify({
+        "stats": {
+            "total_nodes": total_nodes,
+            "active_nodes": active_nodes,
+            "revoked_nodes": revoked_nodes,
+            "total_authors": total_authors,
+            "verified_authors": verified_authors,
+            "total_claps": total_claps,
+            "total_series": total_series
+        },
+        "nodes": all_nodes,
+        "authors": all_authors
+    })
+
+@app.route('/api/admin/nodes/<int:node_id>/revoke', methods=['POST'])
+@admin_required
+def admin_revoke_node(node_id):
+    """Revokes / unpublishes a node (e.g. vulgar or inappropriate content). Immediately hides it from the public canvas."""
+    data = request.json or {}
+    reason = (data.get('reason') or 'Vulgar / Inappropriate Content').strip()
+    admin_user = session.get('admin_username', 'admin')
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, title, is_revoked FROM nodes WHERE id = ?", (node_id,))
+    node = c.fetchone()
+    if not node:
+        conn.close()
+        return jsonify({"error": "Node not found."}), 404
+
+    c.execute('''
+        UPDATE nodes 
+        SET is_revoked = 1, revoked_reason = ?, revoked_at = datetime('now'), revoked_by = ?
+        WHERE id = ?
+    ''', (reason, admin_user, node_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "status": "success",
+        "message": f"Article #{node_id} ('{node['title']}') successfully revoked.",
+        "node_id": node_id,
+        "is_revoked": 1,
+        "reason": reason
+    })
+
+@app.route('/api/admin/nodes/<int:node_id>/restore', methods=['POST'])
+@admin_required
+def admin_restore_node(node_id):
+    """Restores a previously revoked node back to the live public canvas."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, title FROM nodes WHERE id = ?", (node_id,))
+    node = c.fetchone()
+    if not node:
+        conn.close()
+        return jsonify({"error": "Node not found."}), 404
+
+    c.execute('''
+        UPDATE nodes 
+        SET is_revoked = 0, revoked_reason = NULL, revoked_at = NULL, revoked_by = NULL
+        WHERE id = ?
+    ''', (node_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "status": "success",
+        "message": f"Article #{node_id} ('{node['title']}') restored to the public matrix.",
+        "node_id": node_id,
+        "is_revoked": 0
+    })
+
+@app.route('/api/admin/nodes/<int:node_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_node(node_id):
+    """Permanently deletes a node and unbinds or re-roots any children."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, title, parent_id FROM nodes WHERE id = ?", (node_id,))
+    node = c.fetchone()
+    if not node:
+        conn.close()
+        return jsonify({"error": "Node not found."}), 404
+
+    # Update any child replies so their parent_id points to grandparent or NULL
+    c.execute("UPDATE nodes SET parent_id = ? WHERE parent_id = ?", (node['parent_id'], node_id))
+    c.execute("DELETE FROM nodes WHERE id = ?", (node_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "success", "message": f"Article #{node_id} deleted permanently."})
+
+@app.route('/api/admin/authors/<int:author_id>/toggle-ban', methods=['POST'])
+@admin_required
+def admin_toggle_ban_author(author_id):
+    data = request.json or {}
+    reason = (data.get('reason') or 'Violation of community editorial standards').strip()
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, is_banned FROM authors WHERE id = ?", (author_id,))
+    author = c.fetchone()
+    if not author:
+        conn.close()
+        return jsonify({"error": "Author not found."}), 404
+
+    new_banned_state = 0 if author['is_banned'] else 1
+    new_reason = reason if new_banned_state else None
+
+    c.execute("UPDATE authors SET is_banned = ?, ban_reason = ? WHERE id = ?", (new_banned_state, new_reason, author_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "status": "success",
+        "author_id": author_id,
+        "is_banned": bool(new_banned_state),
+        "message": f"Author @{author['username']} {'suspended' if new_banned_state else 'reinstated'}."
+    })
+
+@app.route('/api/admin/authors/<int:author_id>/toggle-verify', methods=['POST'])
+@admin_required
+def admin_toggle_verify_author(author_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, username, is_verified FROM authors WHERE id = ?", (author_id,))
+    author = c.fetchone()
+    if not author:
+        conn.close()
+        return jsonify({"error": "Author not found."}), 404
+
+    new_verify_state = 0 if author['is_verified'] else 1
+    c.execute("UPDATE authors SET is_verified = ? WHERE id = ?", (new_verify_state, author_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "status": "success",
+        "author_id": author_id,
+        "is_verified": bool(new_verify_state),
+        "message": f"Author @{author['username']} verification status updated to {bool(new_verify_state)}."
+    })
+
+@app.route('/api/admin/change-password', methods=['POST'])
+@admin_required
+def admin_change_password():
+    data = request.json or {}
+    old_pw = (data.get('old_password') or '').strip()
+    new_pw = (data.get('new_password') or '').strip()
+
+    if not new_pw or len(new_pw) < 8:
+        return jsonify({"error": "New password must be at least 8 characters."}), 400
+
+    admin_id = session['admin_id']
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT password_hash FROM admins WHERE id = ?", (admin_id,))
+    admin = c.fetchone()
+
+    if not admin or not check_password_hash(admin['password_hash'], old_pw):
+        conn.close()
+        return jsonify({"error": "Current password incorrect."}), 401
+
+    new_hash = generate_password_hash(new_pw, method='pbkdf2:sha256:600000')
+    c.execute("UPDATE admins SET password_hash = ? WHERE id = ?", (new_hash, admin_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "success", "message": "Admin password updated successfully."})
 
 # ==========================================================================
 # EDITORIAL NODES API (Publishing with Photo & Series)
@@ -467,6 +883,14 @@ def handle_nodes():
         # Check active author session
         author_id = session.get('author_id')
         is_verified_author = 0
+
+        # Check if author is banned
+        if author_id:
+            c.execute("SELECT is_banned, ban_reason FROM authors WHERE id = ?", (author_id,))
+            a_check = c.fetchone()
+            if a_check and a_check['is_banned']:
+                conn.close()
+                return jsonify({"error": f"Author account is suspended ({a_check['ban_reason'] or 'Guideline violation'}). Cannot publish."}), 403
         
         raw_name = (data.get('name') or '').strip()
         raw_title = (data.get('title') or '').strip()
@@ -535,7 +959,6 @@ def handle_nodes():
             image = raw_image
 
         # Photo Attachment check: Use the exact user photo provided
-        # If user didn't provide any, use a fallback
         if not cover_image:
             cover_image = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"
 
@@ -546,8 +969,8 @@ def handle_nodes():
             INSERT INTO nodes 
             (name, title, category, text, content, read_time, claps, image, cover_image, 
              parent_id, sponsor_id, ip, x, y, ref_code, is_spillover, 
-             author_id, series_title, series_part, is_verified_author, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, datetime('now'))
+             author_id, series_title, series_part, is_verified_author, is_revoked, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 0, datetime('now'))
         ''', (name, title, category, text, content, read_time, 0, image, cover_image,
               parent_id, parent_id, ip, nx, ny, ref_code,
               author_id, series_title or None, series_part, is_verified_author))
@@ -594,6 +1017,7 @@ def handle_nodes():
 
     # -------------------------------------------------------------
     # GET: Retrieve all Editorial Nodes, Connections, and Leaderboard
+    # Filters out revoked nodes from the public spatial canvas!
     # -------------------------------------------------------------
     c.execute('''
         SELECT n.id, n.name, n.title, n.category, n.text, n.content, n.read_time, n.claps,
@@ -603,10 +1027,11 @@ def handle_nodes():
                par.title as parent_title,
                auth.badge as author_badge,
                auth.username as author_username,
-               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id) as reply_count
+               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id AND r.is_revoked = 0) as reply_count
         FROM nodes n
         LEFT JOIN nodes par ON n.parent_id = par.id
         LEFT JOIN authors auth ON n.author_id = auth.id
+        WHERE COALESCE(n.is_revoked, 0) = 0
         ORDER BY n.id ASC
     ''')
     raw_nodes = c.fetchall()
@@ -661,7 +1086,8 @@ def handle_nodes():
                COUNT(n.id) as article_count, 
                COALESCE(SUM(n.claps), 0) as total_claps
         FROM authors a
-        JOIN nodes n ON n.author_id = a.id
+        JOIN nodes n ON n.author_id = a.id AND n.is_revoked = 0
+        WHERE a.is_banned = 0
         GROUP BY a.id 
         ORDER BY total_claps DESC, article_count DESC 
         LIMIT 10
@@ -684,7 +1110,7 @@ def handle_nodes():
         SELECT n.series_title, n.name as author_name, n.author_id, COUNT(n.id) as parts_count,
                MIN(n.id) as first_node_id
         FROM nodes n
-        WHERE n.series_title IS NOT NULL AND n.series_title != ''
+        WHERE n.series_title IS NOT NULL AND n.series_title != '' AND n.is_revoked = 0
         GROUP BY n.series_title
         ORDER BY parts_count DESC
     ''')
@@ -702,9 +1128,10 @@ def handle_nodes():
     # Trending Articles
     c.execute('''
         SELECT n.id, n.title, n.name, n.category, n.claps, n.series_title, n.series_part,
-               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id) as replies
+               (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id AND r.is_revoked = 0) as replies
         FROM nodes n
-        ORDER BY (COALESCE(n.claps, 0) * 2 + (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id) * 4) DESC
+        WHERE n.is_revoked = 0
+        ORDER BY (COALESCE(n.claps, 0) * 2 + (SELECT COUNT(*) FROM nodes r WHERE r.parent_id = n.id AND r.is_revoked = 0) * 4) DESC
         LIMIT 8
     ''')
     trending = [
@@ -749,6 +1176,7 @@ def get_node_details(node_id):
         SELECT n.id, n.name, n.title, n.category, n.text, n.content, n.read_time, n.claps,
                n.image, n.cover_image, n.parent_id, n.x, n.y, n.ref_code, n.created_at,
                n.author_id, n.series_title, n.series_part, n.is_verified_author,
+               n.is_revoked, n.revoked_reason,
                par.name as parent_name,
                par.title as parent_title,
                auth.badge as author_badge,
@@ -764,10 +1192,15 @@ def get_node_details(node_id):
         conn.close()
         return jsonify({"error": "Article node not found."}), 404
         
+    is_admin = bool(session.get('admin_id'))
+    if row['is_revoked'] and not is_admin:
+        conn.close()
+        return jsonify({"error": f"This article has been revoked by editorial moderation ({row['revoked_reason'] or 'Community standards'})."}), 404
+
     c.execute('''
         SELECT id, name, title, category, text, read_time, claps, image, created_at, is_verified_author
         FROM nodes
-        WHERE parent_id = ?
+        WHERE parent_id = ? AND is_revoked = 0
         ORDER BY id ASC
     ''', (node_id,))
     replies = [dict(r) for r in c.fetchall()]
@@ -781,7 +1214,7 @@ def get_node_details(node_id):
         c.execute('''
             SELECT id, title, series_part, read_time, claps
             FROM nodes
-            WHERE LOWER(series_title) = LOWER(?)
+            WHERE LOWER(series_title) = LOWER(?) AND is_revoked = 0
             ORDER BY series_part ASC, id ASC
         ''', (node['series_title'],))
         node['series_siblings'] = [dict(r) for r in c.fetchall()]
@@ -798,9 +1231,9 @@ def get_node_details(node_id):
 def clap_node(node_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT claps FROM nodes WHERE id = ?", (node_id,))
+    c.execute("SELECT claps, is_revoked FROM nodes WHERE id = ?", (node_id,))
     row = c.fetchone()
-    if not row:
+    if not row or row['is_revoked']:
         conn.close()
         return jsonify({"error": "Node not found."}), 404
         

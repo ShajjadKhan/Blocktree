@@ -1592,13 +1592,27 @@ tabAuthors.addEventListener('click', () => {
     seriesList.classList.add('d-none');
 });
 
-// Search HUD
+// ==========================================================================
+// Upgraded Realtime Search Engine & Search Action Button
+// ==========================================================================
 const searchInput = document.getElementById('node-search-input');
 const searchDropdown = document.getElementById('search-results-dropdown');
+const btnSearchClear = document.getElementById('btn-search-clear');
+const btnSearchGo = document.getElementById('btn-search-go');
 
-searchInput.addEventListener('input', () => {
+function renderSearchSuggestions() {
+    if (!searchInput || !searchDropdown) return;
     const q = searchInput.value.trim().toLowerCase();
-    if (!q) { searchDropdown.classList.add('d-none'); return; }
+    
+    if (btnSearchClear) {
+        if (q) btnSearchClear.classList.remove('d-none');
+        else btnSearchClear.classList.add('d-none');
+    }
+    
+    if (!q) {
+        searchDropdown.classList.add('d-none');
+        return;
+    }
     
     const matches = currentNodes.filter(n => 
         (n.title && n.title.toLowerCase().includes(q)) || 
@@ -1606,20 +1620,25 @@ searchInput.addEventListener('input', () => {
         (n.category && n.category.toLowerCase().includes(q)) ||
         (n.series_title && n.series_title.toLowerCase().includes(q)) ||
         (n.text && n.text.toLowerCase().includes(q))
-    ).slice(0, 6);
+    ).slice(0, 7);
     
     if (matches.length === 0) {
-        searchDropdown.innerHTML = '<div class="search-item text-muted">No matching articles or series found</div>';
+        searchDropdown.innerHTML = '<div class="search-item text-muted p-3 text-center"><i class="bi bi-search"></i> No articles found matching "' + escapeHtml(q) + '"</div>';
     } else {
         let html = '';
         matches.forEach(m => {
-            const seriesTag = m.series_title ? `<span class="text-gold"><i class="bi bi-collection"></i> ${m.series_title}</span> • ` : '';
+            const seriesTag = m.series_title ? '<span class="text-gold"><i class="bi bi-collection"></i> ' + escapeHtml(m.series_title) + '</span> • ' : '';
+            const verifiedBadge = m.is_verified_author ? '<i class="bi bi-patch-check-fill text-cyan" style="font-size: 9px;"></i>' : '';
+            const highlightedTitle = highlightSearchTerm(m.title, q);
             html += `
                 <div class="search-item" onclick="selectSearchNode(${m.id})">
-                    <span class="search-item-title">${m.title}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                        <span class="search-item-title">${highlightedTitle}</span>
+                        <span class="badge-cat ${getCategoryClass(m.category)}" style="font-size: 8.5px; padding: 1px 5px;">${m.category}</span>
+                    </div>
                     <div class="search-item-meta">
-                        <span>${seriesTag}by @${m.name}</span>
-                        <span class="text-cyan">${m.category}</span>
+                        <span>${seriesTag}by @${escapeHtml(m.name)} ${verifiedBadge}</span>
+                        <span class="text-gold"><i class="bi bi-heart-fill text-magenta"></i> ${m.claps || 0} • ${m.read_time || '2 min'}</span>
                     </div>
                 </div>
             `;
@@ -1627,17 +1646,93 @@ searchInput.addEventListener('input', () => {
         searchDropdown.innerHTML = html;
     }
     searchDropdown.classList.remove('d-none');
-});
+}
+
+function highlightSearchTerm(text, term) {
+    if (!text) return '';
+    const idx = text.toLowerCase().indexOf(term.toLowerCase());
+    if (idx === -1) return escapeHtml(text);
+    const before = text.substring(0, idx);
+    const matched = text.substring(idx, idx + term.length);
+    const after = text.substring(idx + term.length);
+    return escapeHtml(before) + '<span style="color: var(--cyan); background: rgba(0, 243, 255, 0.2); border-radius: 2px; padding: 0 1px;">' + escapeHtml(matched) + '</span>' + escapeHtml(after);
+}
+
+if (searchInput) {
+    searchInput.addEventListener('input', renderSearchSuggestions);
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            executeSearchSubmit();
+        } else if (e.key === 'Escape') {
+            if (searchDropdown) searchDropdown.classList.add('d-none');
+        }
+    });
+}
+
+if (btnSearchClear) {
+    btnSearchClear.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        if (searchDropdown) searchDropdown.classList.add('d-none');
+        btnSearchClear.classList.add('d-none');
+    });
+}
+
+function executeSearchSubmit() {
+    if (!searchInput) return;
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) return;
+    
+    // Find best match: prioritize title, then series, then author
+    let best = currentNodes.find(n => n.title && n.title.toLowerCase() === q);
+    if (!best) best = currentNodes.find(n => n.title && n.title.toLowerCase().startsWith(q));
+    if (!best) best = currentNodes.find(n => n.title && n.title.toLowerCase().includes(q));
+    if (!best) best = currentNodes.find(n => n.series_title && n.series_title.toLowerCase().includes(q));
+    if (!best) best = currentNodes.find(n => n.name && n.name.toLowerCase().includes(q));
+    if (!best) best = currentNodes.find(n => n.text && n.text.toLowerCase().includes(q));
+    
+    if (best) {
+        if (searchDropdown) searchDropdown.classList.add('d-none');
+        focusNode(best.id);
+        openReader(best.id);
+        showToast('Located article: "' + best.title + '"', 'success');
+        
+        // Pulse highlight on the target card
+        setTimeout(() => {
+            const el = document.querySelector(`.editorial-card[data-id="${best.id}"]`);
+            if (el) {
+                el.classList.add('card-pulse-target');
+                setTimeout(() => el.classList.remove('card-pulse-target'), 2500);
+            }
+        }, 300);
+    } else {
+        showToast('No articles found matching "' + q + '"', 'info');
+    }
+}
+
+if (btnSearchGo) {
+    btnSearchGo.addEventListener('click', (e) => {
+        e.preventDefault();
+        playSound('click');
+        executeSearchSubmit();
+    });
+}
 
 window.selectSearchNode = (nodeId) => {
-    searchDropdown.classList.add('d-none');
-    searchInput.value = '';
+    if (searchDropdown) searchDropdown.classList.add('d-none');
+    if (searchInput) searchInput.value = '';
+    if (btnSearchClear) btnSearchClear.classList.add('d-none');
     focusNode(nodeId);
     openReader(nodeId);
 };
 
 document.addEventListener('click', (e) => {
-    if (!document.getElementById('search-hud').contains(e.target)) {
+    const hud = document.getElementById('search-hud');
+    if (hud && !hud.contains(e.target) && searchDropdown) {
         searchDropdown.classList.add('d-none');
     }
 });
@@ -2053,5 +2148,721 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
     await loadMatrix(true);
     await checkDeepLink();
+    optimizeMobileLayout();
+    checkAdminUrlTrigger();
     setInterval(() => { loadMatrix(false); }, 25000);
 });
+
+
+// ==========================================================================
+// SECURE ADMIN MODERATION CONTROL CENTER & AUDIT LOGIC
+// ==========================================================================
+let adminData = {
+    stats: {},
+    nodes: [],
+    authors: [],
+    activeFilter: 'all',
+    activeTab: 'articles'
+};
+
+const adminLoginModal = document.getElementById('admin-login-modal');
+const adminDashboardModal = document.getElementById('admin-dashboard-modal');
+const adminPreviewModal = document.getElementById('admin-preview-modal');
+const adminRevokeModal = document.getElementById('admin-revoke-modal');
+const adminPasswordModal = document.getElementById('admin-password-modal');
+
+const btnOpenAdmin = document.getElementById('btn-open-admin');
+const adminLoginForm = document.getElementById('admin-login-form');
+const adminLoginError = document.getElementById('admin-login-error');
+const adminUserInput = document.getElementById('admin-user-input');
+const adminPassInput = document.getElementById('admin-pass-input');
+
+// Open Admin Gateway
+if (btnOpenAdmin) {
+    btnOpenAdmin.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        playSound('click');
+        await checkAndOpenAdmin();
+    });
+}
+
+async function checkAndOpenAdmin() {
+    try {
+        const res = await fetch('/api/admin/me');
+        const data = await res.json();
+        if (data.logged_in) {
+            openAdminDashboard();
+        } else {
+            openAdminLogin();
+        }
+    } catch (err) {
+        openAdminLogin();
+    }
+}
+
+function openAdminLogin() {
+    if (overlay) overlay.style.display = 'block';
+    if (adminLoginModal) {
+        adminLoginModal.classList.remove('d-none');
+        if (adminLoginError) adminLoginError.classList.add('d-none');
+        if (adminUserInput) setTimeout(() => adminUserInput.focus(), 100);
+    }
+}
+
+function closeAdminLogin() {
+    if (adminLoginModal) adminLoginModal.classList.add('d-none');
+    if (overlay && (!adminDashboardModal || adminDashboardModal.classList.contains('d-none'))) {
+        overlay.style.display = 'none';
+    }
+}
+
+const adminLoginCloseX = document.getElementById('admin-login-close-x');
+const adminLoginCancelBtn = document.getElementById('admin-login-cancel-btn');
+if (adminLoginCloseX) adminLoginCloseX.addEventListener('click', closeAdminLogin);
+if (adminLoginCancelBtn) adminLoginCancelBtn.addEventListener('click', closeAdminLogin);
+
+// Admin Login Form Submit
+if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = (adminUserInput ? adminUserInput.value : '').trim();
+        const password = (adminPassInput ? adminPassInput.value : '').trim();
+        if (!username || !password) return;
+
+        const submitBtn = document.getElementById('admin-login-submit-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Verifying...';
+        }
+
+        try {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.status === 'success') {
+                closeAdminLogin();
+                if (adminPassInput) adminPassInput.value = '';
+                playSound('success');
+                showToast('Admin Authentication Verified', 'success');
+                openAdminDashboard();
+            } else {
+                playSound('error');
+                if (adminLoginError) {
+                    adminLoginError.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (result.error || 'Access denied.');
+                    adminLoginError.classList.remove('d-none');
+                }
+            }
+        } catch (err) {
+            playSound('error');
+            if (adminLoginError) {
+                adminLoginError.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Network / Connection error.';
+                adminLoginError.classList.remove('d-none');
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-shield-check"></i> <span>AUTHENTICATE & ENTER</span>';
+            }
+        }
+    });
+}
+
+// Open Admin Dashboard
+async function openAdminDashboard() {
+    if (overlay) overlay.style.display = 'block';
+    if (adminDashboardModal) {
+        adminDashboardModal.classList.remove('d-none');
+    }
+    await loadAdminDashboardData();
+}
+
+function closeAdminDashboard() {
+    if (adminDashboardModal) adminDashboardModal.classList.add('d-none');
+    if (overlay) overlay.style.display = 'none';
+}
+
+const adminDashCloseX = document.getElementById('admin-dashboard-close-x');
+if (adminDashCloseX) adminDashCloseX.addEventListener('click', closeAdminDashboard);
+
+// Refresh Button
+const adminRefreshBtn = document.getElementById('admin-refresh-btn');
+if (adminRefreshBtn) {
+    adminRefreshBtn.addEventListener('click', async () => {
+        playSound('click');
+        await loadAdminDashboardData();
+        showToast('Dashboard Refreshed', 'info');
+    });
+}
+
+// Log Out Button
+const adminLogoutBtn = document.getElementById('admin-logout-btn');
+if (adminLogoutBtn) {
+    adminLogoutBtn.addEventListener('click', async () => {
+        playSound('click');
+        try {
+            await fetch('/api/admin/logout', { method: 'POST' });
+        } catch (e) {}
+        closeAdminDashboard();
+        showToast('Admin Session Terminated', 'info');
+    });
+}
+
+// Password Change
+const adminPwChangeBtn = document.getElementById('admin-pw-change-btn');
+const adminPwCloseX = document.getElementById('admin-pw-close-x');
+const adminPwCancelBtn = document.getElementById('admin-pw-cancel-btn');
+const adminPwForm = document.getElementById('admin-pw-form');
+const adminPwError = document.getElementById('admin-pw-error');
+
+if (adminPwChangeBtn) {
+    adminPwChangeBtn.addEventListener('click', () => {
+        if (adminPasswordModal) {
+            adminPasswordModal.classList.remove('d-none');
+            if (adminPwError) adminPwError.classList.add('d-none');
+        }
+    });
+}
+if (adminPwCloseX) adminPwCloseX.addEventListener('click', () => adminPasswordModal.classList.add('d-none'));
+if (adminPwCancelBtn) adminPwCancelBtn.addEventListener('click', () => adminPasswordModal.classList.add('d-none'));
+
+if (adminPwForm) {
+    adminPwForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const old_password = document.getElementById('adm-cur-pw').value.trim();
+        const new_password = document.getElementById('adm-new-pw').value.trim();
+        if (!old_password || !new_password) return;
+
+        try {
+            const res = await fetch('/api/admin/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password, new_password })
+            });
+            const result = await res.json();
+            if (res.ok && result.status === 'success') {
+                showToast('Admin password updated successfully!', 'success');
+                adminPasswordModal.classList.add('d-none');
+                adminPwForm.reset();
+            } else {
+                if (adminPwError) {
+                    adminPwError.textContent = result.error || 'Failed to update password.';
+                    adminPwError.classList.remove('d-none');
+                }
+            }
+        } catch (err) {
+            if (adminPwError) {
+                adminPwError.textContent = 'Server connection error.';
+                adminPwError.classList.remove('d-none');
+            }
+        }
+    });
+}
+
+// Load Dashboard Data
+async function loadAdminDashboardData() {
+    try {
+        const res = await fetch('/api/admin/dashboard');
+        if (!res.ok) {
+            if (res.status === 401) {
+                closeAdminDashboard();
+                openAdminLogin();
+            }
+            return;
+        }
+        const data = await res.json();
+        adminData.stats = data.stats || {};
+        adminData.nodes = data.nodes || [];
+        adminData.authors = data.authors || [];
+
+        renderAdminStats();
+        renderAdminArticlesTable();
+        renderAdminAuthorsTable();
+    } catch (err) {
+        console.error('Failed to load admin telemetry:', err);
+    }
+}
+
+// Render 6 Clickable Metric Data Cards
+function renderAdminStats() {
+    const s = adminData.stats;
+    const elTotal = document.getElementById('adm-stat-total');
+    const elActive = document.getElementById('adm-stat-active');
+    const elRevoked = document.getElementById('adm-stat-revoked');
+    const elAuthors = document.getElementById('adm-stat-authors');
+    const elClaps = document.getElementById('adm-stat-claps');
+    const elSeries = document.getElementById('adm-stat-series');
+
+    if (elTotal) elTotal.textContent = s.total_nodes || 0;
+    if (elActive) elActive.textContent = s.active_nodes || 0;
+    if (elRevoked) elRevoked.textContent = s.revoked_nodes || 0;
+    if (elAuthors) elAuthors.textContent = s.verified_authors || s.total_authors || 0;
+    if (elClaps) elClaps.textContent = (s.total_claps || 0).toLocaleString();
+    if (elSeries) elSeries.textContent = s.total_series || 0;
+
+    // Update pill counts
+    const pAll = document.getElementById('pill-cnt-all');
+    const pActive = document.getElementById('pill-cnt-active');
+    const pRevoked = document.getElementById('pill-cnt-revoked');
+    if (pAll) pAll.textContent = s.total_nodes || 0;
+    if (pActive) pActive.textContent = s.active_nodes || 0;
+    if (pRevoked) pRevoked.textContent = s.revoked_nodes || 0;
+}
+
+// Switch Admin Filter from Clickable Cards
+window.setAdminFilter = (filter) => {
+    playSound('click');
+    adminData.activeFilter = filter;
+    
+    // Switch to articles tab if not already on it
+    window.switchAdminTab('articles');
+
+    // Highlight card
+    document.querySelectorAll('.admin-stat-card').forEach(c => c.classList.remove('active-filter'));
+    if (filter === 'all') {
+        const c = document.getElementById('card-filter-all');
+        if (c) c.classList.add('active-filter');
+    } else if (filter === 'active') {
+        const c = document.getElementById('card-filter-active');
+        if (c) c.classList.add('active-filter');
+    } else if (filter === 'revoked') {
+        const c = document.getElementById('card-filter-revoked');
+        if (c) c.classList.add('active-filter');
+    } else if (filter === 'series') {
+        const c = document.getElementById('card-filter-series');
+        if (c) c.classList.add('active-filter');
+    }
+
+    // Highlight filter pill
+    document.querySelectorAll('.admin-filter-pills .pill-btn').forEach(p => p.classList.remove('active'));
+    if (filter === 'all') {
+        const p = document.getElementById('adm-pill-all');
+        if (p) p.classList.add('active');
+    } else if (filter === 'active') {
+        const p = document.getElementById('adm-pill-active');
+        if (p) p.classList.add('active');
+    } else if (filter === 'revoked') {
+        const p = document.getElementById('adm-pill-revoked');
+        if (p) p.classList.add('active');
+    }
+
+    renderAdminArticlesTable();
+};
+
+window.sortAdminByClaps = () => {
+    playSound('click');
+    window.switchAdminTab('articles');
+    document.querySelectorAll('.admin-stat-card').forEach(c => c.classList.remove('active-filter'));
+    const c = document.getElementById('card-filter-claps');
+    if (c) c.classList.add('active-filter');
+    
+    adminData.nodes.sort((a, b) => (b.claps || 0) - (a.claps || 0));
+    renderAdminArticlesTable();
+    showToast('Sorted articles by Reader Claps', 'info');
+};
+
+// Switch Tabs
+window.switchAdminTab = (tabName) => {
+    adminData.activeTab = tabName;
+    document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.add('d-none'));
+
+    const btn = document.getElementById(`adm-tab-btn-${tabName}`);
+    const panel = document.getElementById(`adm-tab-${tabName}`);
+    if (btn) btn.classList.add('active');
+    if (panel) panel.classList.remove('d-none');
+};
+
+// Render Articles Moderation Table
+function renderAdminArticlesTable() {
+    const tbody = document.getElementById('adm-articles-tbody');
+    if (!tbody) return;
+
+    const queryInput = document.getElementById('adm-articles-search');
+    const q = queryInput ? queryInput.value.trim().toLowerCase() : '';
+
+    let filtered = adminData.nodes.filter(n => {
+        // Filter by state
+        if (adminData.activeFilter === 'active' && n.is_revoked) return false;
+        if (adminData.activeFilter === 'revoked' && !n.is_revoked) return false;
+        if (adminData.activeFilter === 'series' && (!n.series_title || n.series_title === '')) return false;
+
+        // Filter by search query
+        if (q) {
+            const matchTitle = n.title && n.title.toLowerCase().includes(q);
+            const matchAuthor = (n.name && n.name.toLowerCase().includes(q)) || (n.author_username && n.author_username.toLowerCase().includes(q));
+            const matchCat = n.category && n.category.toLowerCase().includes(q);
+            const matchIp = n.ip && n.ip.toLowerCase().includes(q);
+            if (!matchTitle && !matchAuthor && !matchCat && !matchIp) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No articles found matching criteria.</td></tr>';
+        return;
+    }
+
+    let rowsHtml = '';
+    filtered.forEach(node => {
+        const coverImg = node.cover_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200';
+        const isRevoked = Boolean(node.is_revoked);
+        const statusBadge = isRevoked
+            ? `<span class="badge-status-revoked" title="Revocation Reason: ${escapeHtml(node.revoked_reason || 'Inappropriate content')}"><i class="bi bi-slash-circle"></i> REVOKED</span>`
+            : `<span class="badge-status-live"><i class="bi bi-check-circle-fill"></i> LIVE</span>`;
+        
+        const seriesInfo = node.series_title ? `<div style="font-size: 9px; color: var(--gold);"><i class="bi bi-collection"></i> ${escapeHtml(node.series_title)} (Pt ${node.series_part || 1})</div>` : '';
+        const authorDisplay = node.author_pen_name || node.name || 'Anonymous';
+        const handleDisplay = node.author_username ? `@${node.author_username}` : 'guest';
+        const verifiedIcon = node.author_is_verified ? '<i class="bi bi-patch-check-fill text-cyan" style="font-size: 9px;"></i>' : '';
+
+        const actionButtons = `
+            <button type="button" class="admin-action-btn btn-adm-preview" onclick="adminPreviewPost(${node.id})" title="Inspect Full Content">
+                <i class="bi bi-eye"></i> View
+            </button>
+            ${isRevoked 
+                ? `<button type="button" class="admin-action-btn btn-adm-restore" onclick="adminRestorePost(${node.id})" title="Restore to Public Matrix">
+                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                   </button>`
+                : `<button type="button" class="admin-action-btn btn-adm-revoke" onclick="adminRevokePost(${node.id})" title="Revoke / Hide from Public">
+                    <i class="bi bi-slash-circle"></i> Revoke
+                   </button>`
+            }
+            <button type="button" class="admin-action-btn btn-adm-del" onclick="adminDeletePost(${node.id})" title="Permanently Delete">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+
+        rowsHtml += `
+            <tr class="${isRevoked ? 'revoked-row' : ''}">
+                <td style="font-family: var(--font-mono); font-weight: bold; color: var(--cyan);">#${node.id}</td>
+                <td><img src="${coverImg}" class="table-cover-thumb" alt=""></td>
+                <td>
+                    <div style="font-weight: 600; color: #fff; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(node.title || 'Untitled')}</div>
+                    ${seriesInfo}
+                    <div style="font-size: 9.5px; color: var(--text-muted); max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(node.text || '')}</div>
+                </td>
+                <td>
+                    <div style="font-weight: 500;">${escapeHtml(authorDisplay)} ${verifiedIcon}</div>
+                    <div style="font-size: 9px; color: var(--text-muted);">${escapeHtml(handleDisplay)}</div>
+                </td>
+                <td><span class="badge-cat ${getCategoryClass(node.category)}" style="font-size: 8.5px; padding: 1px 5px;">${node.category || 'Newsletter'}</span></td>
+                <td style="font-family: var(--font-mono); color: var(--gold);"><i class="bi bi-heart-fill text-magenta"></i> ${node.claps || 0}</td>
+                <td>
+                    <div style="font-size: 9.5px; font-family: var(--font-mono);">${node.created_at ? node.created_at.substring(0, 10) : 'Recent'}</div>
+                    <div style="font-size: 8.5px; color: var(--text-muted); font-family: var(--font-mono);">${node.ip || '127.0.0.1'}</div>
+                </td>
+                <td>${statusBadge}</td>
+                <td style="text-align: right; white-space: nowrap;">${actionButtons}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+
+// Realtime search in admin articles table
+const admArticlesSearch = document.getElementById('adm-articles-search');
+if (admArticlesSearch) {
+    admArticlesSearch.addEventListener('input', () => {
+        renderAdminArticlesTable();
+    });
+}
+
+// Render Authors Table
+function renderAdminAuthorsTable() {
+    const tbody = document.getElementById('adm-authors-tbody');
+    if (!tbody) return;
+
+    const queryInput = document.getElementById('adm-authors-search');
+    const q = queryInput ? queryInput.value.trim().toLowerCase() : '';
+
+    let filtered = adminData.authors.filter(a => {
+        if (q) {
+            const matchName = a.pen_name && a.pen_name.toLowerCase().includes(q);
+            const matchUser = a.username && a.username.toLowerCase().includes(q);
+            const matchEmail = a.email && a.email.toLowerCase().includes(q);
+            if (!matchName && !matchUser && !matchEmail) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">No authors registered yet.</td></tr>';
+        return;
+    }
+
+    let rowsHtml = '';
+    filtered.forEach(auth => {
+        const isBanned = Boolean(auth.is_banned);
+        const isVerified = Boolean(auth.is_verified);
+        const avatarUrl = auth.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${auth.username}`;
+
+        rowsHtml += `
+            <tr class="${isBanned ? 'revoked-row' : ''}">
+                <td style="font-family: var(--font-mono); color: var(--gold);">#${auth.id}</td>
+                <td><img src="${avatarUrl}" style="width: 28px; height: 28px; border-radius: 50%;" alt=""></td>
+                <td>
+                    <div style="font-weight: 600; color: #fff;">${escapeHtml(auth.pen_name)}</div>
+                    <div style="font-size: 9px; color: var(--cyan);">@${escapeHtml(auth.username)}</div>
+                </td>
+                <td style="font-size: 9.5px; color: var(--text-muted);">${escapeHtml(auth.email || 'N/A')}</td>
+                <td style="font-family: var(--font-mono); color: var(--gold);">${auth.reputation_score || 100}</td>
+                <td style="font-family: var(--font-mono);">${auth.article_count || 0}</td>
+                <td style="font-family: var(--font-mono); color: var(--magenta);">${auth.total_claps || 0}</td>
+                <td>
+                    <span class="${isVerified ? 'badge-verified' : 'text-muted'}" style="font-size: 9.5px;">
+                        ${isVerified ? '<i class="bi bi-patch-check-fill"></i> Verified' : 'Unverified'}
+                    </span>
+                </td>
+                <td>
+                    ${isBanned 
+                        ? '<span class="badge-status-revoked"><i class="bi bi-slash-circle"></i> Suspended</span>'
+                        : '<span class="badge-status-live"><i class="bi bi-check-circle-fill"></i> Active</span>'}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                    <button type="button" class="admin-action-btn btn-adm-preview" onclick="adminToggleVerifyAuthor(${auth.id})">
+                        ${isVerified ? 'Unverify' : 'Verify'}
+                    </button>
+                    <button type="button" class="admin-action-btn ${isBanned ? 'btn-adm-restore' : 'btn-adm-revoke'}" onclick="adminToggleBanAuthor(${auth.id})">
+                        ${isBanned ? 'Reinstate' : 'Suspend'}
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+
+const admAuthorsSearch = document.getElementById('adm-authors-search');
+if (admAuthorsSearch) {
+    admAuthorsSearch.addEventListener('input', () => {
+        renderAdminAuthorsTable();
+    });
+}
+
+// --------------------------------------------------------------------------
+// Moderation Action Implementations
+// --------------------------------------------------------------------------
+// 1. Inspect / Preview Post
+window.adminPreviewPost = (nodeId) => {
+    const node = adminData.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const bodyEl = document.getElementById('admin-preview-body');
+    const actionsEl = document.getElementById('admin-preview-actions');
+    if (!bodyEl) return;
+
+    const isRevoked = Boolean(node.is_revoked);
+    const coverHtml = node.cover_image ? `<img src="${node.cover_image}" style="width: 100%; max-height: 240px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;" alt="">` : '';
+
+    bodyEl.innerHTML = `
+        ${coverHtml}
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span class="badge-cat ${getCategoryClass(node.category)}">${node.category}</span>
+            <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);">${node.created_at || 'Recently Published'}</span>
+        </div>
+        <h2 style="font-size: 18px; color: #fff; margin: 4px 0 10px 0;">${escapeHtml(node.title)}</h2>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px;">
+            <div><strong>Creator:</strong> ${escapeHtml(node.name || 'Anonymous')} (@${escapeHtml(node.author_username || 'guest')})</div>
+            <div><strong>Client IP:</strong> <code style="color: var(--cyan);">${node.ip || '127.0.0.1'}</code></div>
+            <div><strong>Status:</strong> ${isRevoked ? '<span class="text-danger">REVOKED (' + escapeHtml(node.revoked_reason || 'Inappropriate content') + ')</span>' : '<span class="text-green">LIVE ON MATRIX</span>'}</div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.6; color: rgba(255,255,255,0.9); max-height: 260px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
+            ${node.content ? marked.parse(node.content) : escapeHtml(node.text || '')}
+        </div>
+    `;
+
+    if (actionsEl) {
+        actionsEl.innerHTML = `
+            <button type="button" class="btn-secondary" onclick="document.getElementById('admin-preview-modal').classList.add('d-none')">CLOSE</button>
+            ${isRevoked 
+                ? `<button type="button" class="btn-primary" onclick="adminRestorePost(${node.id}); document.getElementById('admin-preview-modal').classList.add('d-none');">
+                    <i class="bi bi-arrow-counterclockwise"></i> RESTORE ARTICLE
+                   </button>`
+                : `<button type="button" class="btn-primary" style="background: var(--magenta); border-color: var(--magenta);" onclick="document.getElementById('admin-preview-modal').classList.add('d-none'); adminRevokePost(${node.id});">
+                    <i class="bi bi-slash-circle"></i> REVOKE ARTICLE
+                   </button>`
+            }
+        `;
+    }
+
+    if (adminPreviewModal) adminPreviewModal.classList.remove('d-none');
+};
+
+const adminPreviewCloseX = document.getElementById('admin-preview-close-x');
+if (adminPreviewCloseX) {
+    adminPreviewCloseX.addEventListener('click', () => {
+        if (adminPreviewModal) adminPreviewModal.classList.add('d-none');
+    });
+}
+
+// 2. Revoke Post
+window.adminRevokePost = (nodeId) => {
+    const targetInput = document.getElementById('revoke-target-node-id');
+    if (targetInput) targetInput.value = nodeId;
+    if (adminRevokeModal) adminRevokeModal.classList.remove('d-none');
+};
+
+const adminRevokeCloseX = document.getElementById('admin-revoke-close-x');
+const adminRevokeCancelBtn = document.getElementById('admin-revoke-cancel-btn');
+const adminRevokeConfirmBtn = document.getElementById('admin-revoke-confirm-btn');
+
+if (adminRevokeCloseX) adminRevokeCloseX.addEventListener('click', () => adminRevokeModal.classList.add('d-none'));
+if (adminRevokeCancelBtn) adminRevokeCancelBtn.addEventListener('click', () => adminRevokeModal.classList.add('d-none'));
+
+// Radio options change
+document.querySelectorAll('input[name="revoke-reason"]').forEach(r => {
+    r.addEventListener('change', () => {
+        const customWrap = document.getElementById('revoke-custom-wrap');
+        if (customWrap) {
+            if (r.value === 'custom') customWrap.classList.remove('d-none');
+            else customWrap.classList.add('d-none');
+        }
+    });
+});
+
+if (adminRevokeConfirmBtn) {
+    adminRevokeConfirmBtn.addEventListener('click', async () => {
+        const targetId = document.getElementById('revoke-target-node-id').value;
+        if (!targetId) return;
+
+        let reason = 'Vulgar / Inappropriate Language';
+        const selectedRadio = document.querySelector('input[name="revoke-reason"]:checked');
+        if (selectedRadio) {
+            if (selectedRadio.value === 'custom') {
+                reason = (document.getElementById('revoke-custom-reason').value || '').trim() || 'Moderation policy violation';
+            } else {
+                reason = selectedRadio.value;
+            }
+        }
+
+        try {
+            const res = await fetch(`/api/admin/nodes/${targetId}/revoke`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                playSound('success');
+                showToast(`Article #${targetId} successfully revoked from public view.`, 'success');
+                adminRevokeModal.classList.add('d-none');
+                await loadAdminDashboardData();
+                await loadMatrix(false); // Refreshes public canvas so it vanishes!
+            } else {
+                showToast(result.error || 'Failed to revoke article.', 'error');
+            }
+        } catch (err) {
+            showToast('Network error while revoking.', 'error');
+        }
+    });
+}
+
+// 3. Restore Post
+window.adminRestorePost = async (nodeId) => {
+    playSound('click');
+    try {
+        const res = await fetch(`/api/admin/nodes/${nodeId}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await res.json();
+        if (res.ok) {
+            playSound('success');
+            showToast(`Article #${nodeId} restored to public matrix!`, 'success');
+            await loadAdminDashboardData();
+            await loadMatrix(false);
+        } else {
+            showToast(result.error || 'Failed to restore article.', 'error');
+        }
+    } catch (err) {
+        showToast('Network error restoring article.', 'error');
+    }
+};
+
+// 4. Delete Post
+window.adminDeletePost = async (nodeId) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY delete article #${nodeId}? This cannot be undone.`)) {
+        return;
+    }
+    playSound('click');
+    try {
+        const res = await fetch(`/api/admin/nodes/${nodeId}`, {
+            method: 'DELETE'
+        });
+        const result = await res.json();
+        if (res.ok) {
+            playSound('success');
+            showToast(`Article #${nodeId} permanently deleted.`, 'success');
+            await loadAdminDashboardData();
+            await loadMatrix(false);
+        } else {
+            showToast(result.error || 'Failed to delete article.', 'error');
+        }
+    } catch (err) {
+        showToast('Network error deleting article.', 'error');
+    }
+};
+
+// 5. Toggle Verify Author
+window.adminToggleVerifyAuthor = async (authorId) => {
+    playSound('click');
+    try {
+        const res = await fetch(`/api/admin/authors/${authorId}/toggle-verify`, { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(result.message, 'success');
+            await loadAdminDashboardData();
+        }
+    } catch (err) {
+        showToast('Network error updating author verification.', 'error');
+    }
+};
+
+// 6. Toggle Ban Author
+window.adminToggleBanAuthor = async (authorId) => {
+    playSound('click');
+    try {
+        const res = await fetch(`/api/admin/authors/${authorId}/toggle-ban`, { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(result.message, 'success');
+            await loadAdminDashboardData();
+        }
+    } catch (err) {
+        showToast('Network error updating author suspension.', 'error');
+    }
+};
+
+// --------------------------------------------------------------------------
+// Mobile Joystick Toggle & Layout Optimizer
+// --------------------------------------------------------------------------
+const joyToggleBtn = document.getElementById('joy-toggle-btn');
+if (joyToggleBtn && spatialNavDeck) {
+    joyToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        spatialNavDeck.classList.toggle('compact-mode');
+    });
+}
+
+// On Mobile Viewports: Default to compact mode to eliminate overlap with cards
+function optimizeMobileLayout() {
+    if (window.innerWidth <= 768 && spatialNavDeck) {
+        spatialNavDeck.classList.add('compact-mode');
+    }
+}
+window.addEventListener('resize', optimizeMobileLayout);
+
+// Auto-check URL query for /admin or ?open_admin=1
+function checkAdminUrlTrigger() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('open_admin') === '1' || window.location.pathname.endsWith('/admin')) {
+        setTimeout(checkAndOpenAdmin, 400);
+    }
+}

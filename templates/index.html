@@ -6,7 +6,7 @@
     <title>BlockTree Editorial - Spatial Newsletter & Branching Discourse</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.3">
     <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -63,10 +63,14 @@
                 <i class="bi bi-search text-cyan"></i>
             </button>
 
-            <!-- Search Input -->
+            <!-- Search Input & Realtime Suggestions -->
             <div class="search-hud" id="search-hud">
                 <i class="bi bi-search search-icon"></i>
                 <input type="text" id="node-search-input" placeholder="Search articles, series, authors..." autocomplete="off">
+                <button type="button" id="btn-search-clear" class="search-clear-btn d-none" title="Clear search">&times;</button>
+                <button type="button" id="btn-search-go" class="search-go-btn" title="Find Article on Matrix">
+                    <i class="bi bi-search"></i> <span>Find</span>
+                </button>
                 <div id="search-results-dropdown" class="search-dropdown d-none"></div>
             </div>
 
@@ -75,10 +79,10 @@
                 <!-- Logged Out State -->
                 <div id="nav-logged-out" class="auth-btn-group">
                     <button id="btn-open-login" class="nav-btn-subtle" title="Log in with verified account">
-                        <i class="bi bi-key-fill"></i> <span>LOG IN</span>
+                        <i class="bi bi-key-fill"></i> <span class="nav-btn-text">LOG IN</span>
                     </button>
                     <button id="btn-open-register" class="nav-btn-gold" title="Join verified author base">
-                        <i class="bi bi-patch-check-fill"></i> <span>BECOME VERIFIED</span>
+                        <i class="bi bi-patch-check-fill"></i> <span class="nav-btn-text">VERIFY</span>
                     </button>
                 </div>
 
@@ -97,6 +101,11 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Admin Moderation Shield Button -->
+            <button type="button" id="btn-open-admin" class="nav-icon-btn admin-shield-btn" title="Admin Moderation Dashboard">
+                <i class="bi bi-shield-lock-fill text-gold"></i>
+            </button>
 
             <!-- Audio Synthesizer Toggle -->
             <button id="sound-toggle-btn" class="nav-icon-btn" title="Toggle Sound Feedback">
@@ -189,6 +198,9 @@
             </button>
             <button type="button" id="ctrl-reset" class="deck-btn deck-btn-recenter" title="Recenter Camera on Matrix">
                 <i class="bi bi-crosshair"></i>
+            </button>
+            <button type="button" id="joy-toggle-btn" class="deck-btn joy-toggle-btn" title="Toggle 360° Joystick">
+                <i class="bi bi-joystick"></i>
             </button>
         </div>
     </div>
@@ -630,7 +642,7 @@
                 <button type="button" id="login-cancel-btn" class="btn-secondary">CANCEL</button>
                 <button type="submit" id="login-submit-btn" class="btn-primary">
                     <i class="bi bi-box-arrow-in-right"></i>
-                    <span>LOG IN</span>
+                    <span class="nav-btn-text">LOG IN</span>
                 </button>
             </div>
 
@@ -728,12 +740,325 @@
         </div>
     </div>
 
+    <!-- ==========================================================================
+         ADMIN MODERATION & CONTENT CONTROL CENTER
+         ========================================================================== -->
+    <!-- 1. Secure Cyber Admin Login Modal -->
+    <div id="admin-login-modal" class="cyber-modal hud-glass d-none">
+        <div class="modal-header">
+            <h2><i class="bi bi-shield-lock-fill text-gold"></i> Admin Security Gate</h2>
+            <button type="button" id="admin-login-close-x" class="modal-x">&times;</button>
+        </div>
+
+        <form id="admin-login-form" onsubmit="return false;">
+            <div class="admin-security-alert">
+                <i class="bi bi-shield-exclamation text-gold"></i>
+                <div>
+                    <strong>Encrypted Moderation Access</strong>
+                    <p class="dim-text mb-0" style="font-size: 11px;">Brute-force protection is active. 5 failed attempts trigger an automatic 15-minute lockout.</p>
+                </div>
+            </div>
+
+            <div id="admin-login-error" class="admin-error-box d-none"></div>
+
+            <div class="input-group">
+                <label>Administrator Username *:</label>
+                <input type="text" id="admin-user-input" placeholder="admin" autocomplete="username" required>
+            </div>
+
+            <div class="input-group">
+                <label>Encrypted Master Key / Password *:</label>
+                <input type="password" id="admin-pass-input" placeholder="••••••••••••" autocomplete="current-password" required>
+            </div>
+
+            <div class="btn-group">
+                <button type="button" id="admin-login-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="admin-login-submit-btn" class="btn-primary btn-gold">
+                    <i class="bi bi-shield-check"></i>
+                    <span>AUTHENTICATE & ENTER</span>
+                </button>
+            </div>
+            <div class="modal-footer-switch text-center">
+                <span class="dim-text" style="font-size: 11px;">Default Initial Key: <code>Admin@Blocktree2026!</code></span>
+            </div>
+        </form>
+    </div>
+
+    <!-- 2. Admin Dashboard & Content Moderation Modal -->
+    <div id="admin-dashboard-modal" class="cyber-modal hud-glass admin-modal d-none">
+        <div class="admin-top-header">
+            <div class="admin-top-brand">
+                <div class="admin-badge-icon"><i class="bi bi-shield-shaded text-gold"></i></div>
+                <div>
+                    <h2 class="admin-modal-title">EDITORIAL CONTROL CENTER & MODERATION DASHBOARD</h2>
+                    <div class="admin-session-tag">
+                        <span class="live-dot-green"></span>
+                        <span id="admin-active-user">admin</span> • <span class="text-gold">SUPERADMIN SESSION ACTIVE</span>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-top-actions">
+                <button type="button" id="admin-refresh-btn" class="nav-btn-subtle" title="Refresh Dashboard Telemetry">
+                    <i class="bi bi-arrow-repeat"></i> <span>Refresh</span>
+                </button>
+                <button type="button" id="admin-pw-change-btn" class="nav-btn-subtle" title="Change Admin Password">
+                    <i class="bi bi-key"></i> <span>Password</span>
+                </button>
+                <button type="button" id="admin-logout-btn" class="nav-btn-subtle text-danger" title="Terminate Admin Session">
+                    <i class="bi bi-box-arrow-right"></i> <span>Log Out</span>
+                </button>
+                <button type="button" id="admin-dashboard-close-x" class="modal-x" title="Close Dashboard">&times;</button>
+            </div>
+        </div>
+
+        <!-- Clickable Data Cards Row -->
+        <div class="admin-stat-grid">
+            <div class="admin-stat-card active-filter" id="card-filter-all" onclick="setAdminFilter('all')" title="Click to view all articles">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">TOTAL PUBLISHED</span>
+                    <i class="bi bi-journal-richtext text-cyan"></i>
+                </div>
+                <div class="stat-card-val text-cyan" id="adm-stat-total">0</div>
+                <div class="stat-card-sub">All matrix articles</div>
+            </div>
+
+            <div class="admin-stat-card" id="card-filter-active" onclick="setAdminFilter('active')" title="Click to view live active articles">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">LIVE & ACTIVE</span>
+                    <i class="bi bi-check-circle-fill text-green"></i>
+                </div>
+                <div class="stat-card-val text-green" id="adm-stat-active">0</div>
+                <div class="stat-card-sub">Visible on canvas</div>
+            </div>
+
+            <div class="admin-stat-card card-alert" id="card-filter-revoked" onclick="setAdminFilter('revoked')" title="Click to view revoked / vulgar content queue">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">REVOKED / FLAGGED</span>
+                    <i class="bi bi-slash-circle-fill text-magenta"></i>
+                </div>
+                <div class="stat-card-val text-magenta" id="adm-stat-revoked">0</div>
+                <div class="stat-card-sub">Hidden from public</div>
+            </div>
+
+            <div class="admin-stat-card" id="card-tab-authors" onclick="switchAdminTab('authors')" title="Click to manage verified authors">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">VERIFIED CREATORS</span>
+                    <i class="bi bi-patch-check-fill text-gold"></i>
+                </div>
+                <div class="stat-card-val text-gold" id="adm-stat-authors">0</div>
+                <div class="stat-card-sub">Registered accounts</div>
+            </div>
+
+            <div class="admin-stat-card" id="card-filter-claps" onclick="sortAdminByClaps()" title="Click to sort by total reader claps">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">READER CLAPS</span>
+                    <i class="bi bi-heart-fill text-magenta"></i>
+                </div>
+                <div class="stat-card-val text-gold" id="adm-stat-claps">0</div>
+                <div class="stat-card-sub">Total upvotes</div>
+            </div>
+
+            <div class="admin-stat-card" id="card-filter-series" onclick="setAdminFilter('series')" title="Click to view series writings">
+                <div class="stat-card-top">
+                    <span class="stat-card-label">SERIES VOLUMES</span>
+                    <i class="bi bi-collection-fill text-cyan"></i>
+                </div>
+                <div class="stat-card-val text-cyan" id="adm-stat-series">0</div>
+                <div class="stat-card-sub">Multi-part collections</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Navigation Tabs -->
+        <div class="admin-nav-tabs">
+            <button type="button" class="admin-tab-btn active" id="adm-tab-btn-articles" onclick="switchAdminTab('articles')">
+                <i class="bi bi-file-earmark-text-fill"></i> Articles & Content Moderation
+            </button>
+            <button type="button" class="admin-tab-btn" id="adm-tab-btn-authors" onclick="switchAdminTab('authors')">
+                <i class="bi bi-people-fill"></i> Verified Authors & Creators
+            </button>
+            <button type="button" class="admin-tab-btn" id="adm-tab-btn-security" onclick="switchAdminTab('security')">
+                <i class="bi bi-shield-lock-fill"></i> Security & Audit Telemetry
+            </button>
+        </div>
+
+        <!-- TAB 1: Articles & Content Moderation -->
+        <div id="adm-tab-articles" class="admin-tab-panel">
+            <div class="admin-toolbar">
+                <div class="admin-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="adm-articles-search" placeholder="Search by headline, author, category, or IP..." autocomplete="off">
+                </div>
+                <div class="admin-filter-pills">
+                    <button type="button" class="pill-btn active" id="adm-pill-all" onclick="setAdminFilter('all')">All (<span id="pill-cnt-all">0</span>)</button>
+                    <button type="button" class="pill-btn" id="adm-pill-active" onclick="setAdminFilter('active')">Live Active (<span id="pill-cnt-active">0</span>)</button>
+                    <button type="button" class="pill-btn text-danger" id="adm-pill-revoked" onclick="setAdminFilter('revoked')">Revoked / Vulgar (<span id="pill-cnt-revoked">0</span>)</button>
+                </div>
+            </div>
+
+            <div class="admin-table-container">
+                <table class="admin-table" id="adm-articles-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">ID</th>
+                            <th style="width: 65px;">Cover</th>
+                            <th>Headline & Excerpt</th>
+                            <th>Author / Creator</th>
+                            <th>Category</th>
+                            <th>Claps</th>
+                            <th>Date / IP</th>
+                            <th>Status</th>
+                            <th style="width: 210px; text-align: right;">Moderation Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adm-articles-tbody">
+                        <tr><td colspan="9" class="text-center py-4 text-muted"><i class="bi bi-arrow-repeat spin"></i> Loading articles...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: Authors & Creators -->
+        <div id="adm-tab-authors" class="admin-tab-panel d-none">
+            <div class="admin-toolbar">
+                <div class="admin-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="adm-authors-search" placeholder="Search authors by pen name, handle, or email..." autocomplete="off">
+                </div>
+            </div>
+
+            <div class="admin-table-container">
+                <table class="admin-table" id="adm-authors-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">ID</th>
+                            <th style="width: 55px;">Avatar</th>
+                            <th>Pen Name & Handle</th>
+                            <th>Email</th>
+                            <th>Reputation</th>
+                            <th>Articles</th>
+                            <th>Claps</th>
+                            <th>Verified</th>
+                            <th>Status</th>
+                            <th style="width: 190px; text-align: right;">Creator Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adm-authors-tbody">
+                        <tr><td colspan="10" class="text-center py-4 text-muted"><i class="bi bi-arrow-repeat spin"></i> Loading creators...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 3: Security & Audit Telemetry -->
+        <div id="adm-tab-security" class="admin-tab-panel d-none">
+            <div class="security-grid">
+                <div class="sec-card">
+                    <h4><i class="bi bi-shield-check text-green"></i> System Protection Active</h4>
+                    <p>Brute-force protection algorithm is actively monitoring authentication endpoints. Accounts undergo automatic 15-minute lockouts upon 5 failed attempts.</p>
+                    <div class="sec-status-pill"><span class="live-dot-green"></span> Rate Limiter: ARMED & RUNNING</div>
+                </div>
+                <div class="sec-card">
+                    <h4><i class="bi bi-lock-fill text-gold"></i> Session Integrity</h4>
+                    <p>Session tokens are cryptographically randomized (32-byte hex) and bound to HTTPOnly cookies to protect against XSS and session hijacking.</p>
+                    <div class="sec-status-pill"><span class="live-dot-gold"></span> Encryption: PBKDF2-SHA256 (600,000 rounds)</div>
+                </div>
+                <div class="sec-card">
+                    <h4><i class="bi bi-eye-slash-fill text-cyan"></i> Instant Content Revocation</h4>
+                    <p>When an article is revoked, it is immediately excluded from the spatial matrix rendering engine, API feed, and reader drawer for all regular users.</p>
+                    <div class="sec-status-pill"><span class="live-dot-cyan"></span> Realtime Filter: ZERO EXPOSURE</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Admin Article Full Preview Modal -->
+    <div id="admin-preview-modal" class="cyber-modal hud-glass d-none" style="width: 720px; max-width: 95vw;">
+        <div class="modal-header">
+            <h2><i class="bi bi-eye-fill text-cyan"></i> Inspect Article Content</h2>
+            <button type="button" id="admin-preview-close-x" class="modal-x">&times;</button>
+        </div>
+        <div id="admin-preview-body" class="admin-preview-content">
+            <!-- Populated dynamically -->
+        </div>
+        <div class="btn-group mt-3" id="admin-preview-actions">
+            <!-- Populated dynamically -->
+        </div>
+    </div>
+
+    <!-- 4. Revoke Reason Modal -->
+    <div id="admin-revoke-modal" class="cyber-modal hud-glass d-none" style="width: 520px; max-width: 95vw;">
+        <div class="modal-header">
+            <h2><i class="bi bi-slash-circle-fill text-magenta"></i> Revoke Article from Public Matrix</h2>
+            <button type="button" id="admin-revoke-close-x" class="modal-x">&times;</button>
+        </div>
+        <div class="p-2">
+            <p class="dim-text">Please specify why this article is being revoked. The article will be immediately hidden from the public canvas.</p>
+            <input type="hidden" id="revoke-target-node-id" value="">
+            
+            <div class="revoke-reasons-list">
+                <label class="revoke-reason-opt">
+                    <input type="radio" name="revoke-reason" value="Vulgar / Inappropriate Language" checked>
+                    <span>Vulgar / Inappropriate Language</span>
+                </label>
+                <label class="revoke-reason-opt">
+                    <input type="radio" name="revoke-reason" value="Harassment or Hate Speech">
+                    <span>Harassment or Hate Speech</span>
+                </label>
+                <label class="revoke-reason-opt">
+                    <input type="radio" name="revoke-reason" value="Spam / Advertisements / Misinformation">
+                    <span>Spam / Advertisements / Misinformation</span>
+                </label>
+                <label class="revoke-reason-opt">
+                    <input type="radio" name="revoke-reason" value="Violation of Community Standards">
+                    <span>Violation of Community Standards</span>
+                </label>
+                <label class="revoke-reason-opt">
+                    <input type="radio" name="revoke-reason" value="custom">
+                    <span>Custom Reason...</span>
+                </label>
+            </div>
+            <div id="revoke-custom-wrap" class="input-group mt-2 d-none">
+                <input type="text" id="revoke-custom-reason" placeholder="Enter reason description..." maxlength="120">
+            </div>
+
+            <div class="btn-group mt-3">
+                <button type="button" id="admin-revoke-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="button" id="admin-revoke-confirm-btn" class="btn-primary" style="background: var(--magenta); border-color: var(--magenta);">
+                    <i class="bi bi-slash-circle"></i> <span>CONFIRM REVOCATION</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Admin Password Change Modal -->
+    <div id="admin-password-modal" class="cyber-modal hud-glass d-none" style="width: 480px; max-width: 95vw;">
+        <div class="modal-header">
+            <h2><i class="bi bi-key-fill text-gold"></i> Update Admin Password</h2>
+            <button type="button" id="admin-pw-close-x" class="modal-x">&times;</button>
+        </div>
+        <form id="admin-pw-form" onsubmit="return false;">
+            <div id="admin-pw-error" class="admin-error-box d-none"></div>
+            <div class="input-group">
+                <label>Current Password *:</label>
+                <input type="password" id="adm-cur-pw" placeholder="••••••••" required>
+            </div>
+            <div class="input-group">
+                <label>New Master Password (min 8 characters) *:</label>
+                <input type="password" id="adm-new-pw" placeholder="••••••••" required>
+            </div>
+            <div class="btn-group">
+                <button type="button" id="admin-pw-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="admin-pw-submit-btn" class="btn-primary btn-gold">UPDATE PASSWORD</button>
+            </div>
+        </form>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="hud-toast d-none">
         <i class="bi bi-info-circle-fill" id="toast-icon"></i>
         <span id="toast-message">Notification</span>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.2"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.3"></script>
 </body>
 </html>
