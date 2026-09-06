@@ -2,99 +2,90 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BlockTree | 1x5 Auto-Spillover Referral Matrix</title>
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-    
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    
-    <!-- Panzoom Library -->
-    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-    
-    <!-- Custom Cyber Matrix Stylesheet -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockTree Editorial - Spatial Newsletter & Branching Discourse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
-<body>
-    <!-- Top Streamlined Cyber Navigation Bar -->
-    <header id="top-nav-bar">
-        <!-- Brand & Quick Stats Pill -->
-        <div class="nav-pill hud-glass" id="stats-pill">
-            <span class="brand-tag"><i class="bi bi-cpu-fill text-cyan"></i> BLOCKTREE</span>
-            <div class="pill-divider"></div>
-            <span class="pill-stat"><strong id="stat-total-users" class="text-cyan">0</strong> Nodes</span>
-            <span class="pill-stat d-none d-sm-inline"><strong id="stat-spillovers" class="text-magenta">0</strong> Spillovers</span>
-            <span class="pill-stat d-none d-md-inline"><strong id="stat-depth" class="text-gold">GEN 0</strong></span>
-            <span class="scarcity-badge" id="scarcity-pill-badge">0 / 100 Genesis</span>
-            <button id="toggle-stats-btn" class="pill-toggle-btn" title="Toggle Detailed Telemetry">
-                <i class="bi bi-chevron-down" id="stats-chevron"></i>
+<body class="editorial-body">
+
+    <!-- Top Navigation & Matrix Telemetry Header -->
+    <header id="top-nav" class="hud-glass">
+        <div class="nav-left">
+            <div class="brand-badge">
+                <i class="bi bi-newspaper brand-icon"></i>
+                <div class="brand-text">
+                    <span class="brand-title">BLOCKTREE<span class="brand-dot">.</span>EDITORIAL</span>
+                    <span class="brand-sub">Spatial Newsletter & Branching Discourse</span>
+                </div>
+            </div>
+
+            <!-- Telemetry Status Pills -->
+            <div class="stats-pills-row">
+                <div class="stat-pill" title="Top-level Newsletter Editions">
+                    <i class="bi bi-journal-richtext text-cyan"></i>
+                    <span>Editions:</span>
+                    <strong id="stat-editions" class="text-cyan">0</strong>
+                </div>
+                <div class="stat-pill" title="Branching Perspectives & Rebuttals">
+                    <i class="bi bi-diagram-3-fill text-magenta"></i>
+                    <span>Replies:</span>
+                    <strong id="stat-replies" class="text-magenta">0</strong>
+                </div>
+                <div class="stat-pill" title="Total Reader Claps & Accolades">
+                    <i class="bi bi-heart-fill text-gold"></i>
+                    <span>Claps:</span>
+                    <strong id="stat-claps" class="text-gold">0</strong>
+                </div>
+                <div class="stat-pill live-indicator" title="Active Readers on the Matrix Canvas">
+                    <span class="live-dot-green"></span>
+                    <span id="live-readers">18</span> <span class="dim-text">Reading</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <!-- Search Input -->
+            <div class="search-hud" id="search-hud">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" id="node-search-input" placeholder="Search articles, authors, replies..." autocomplete="off">
+                <div id="search-results-dropdown" class="search-dropdown d-none"></div>
+            </div>
+
+            <!-- Audio Synthesizer Toggle -->
+            <button id="sound-toggle-btn" class="nav-icon-btn" title="Toggle Sound Feedback">
+                <i class="bi bi-volume-up-fill" id="sound-icon"></i>
             </button>
-        </div>
 
-        <!-- Search Bar (Compact Center) -->
-        <div id="search-hud" class="hud-glass">
-            <i class="bi bi-search text-cyan"></i>
-            <input type="text" id="node-search-input" placeholder="Search citizen or code..." autocomplete="off">
-            <div id="search-results-dropdown" class="search-dropdown d-none"></div>
-        </div>
-
-        <!-- Top Right Action Controls -->
-        <div class="top-right-group">
-            <!-- Audio Toggle -->
-            <button id="audio-toggle" class="hud-glass pill-icon-btn" title="Toggle Sound Effects">
-                <i class="bi bi-volume-up-fill text-cyan" id="audio-icon"></i>
+            <!-- Primary Header Action -->
+            <button id="header-publish-btn" class="glow-pulse-btn-sm">
+                <i class="bi bi-pen-fill"></i>
+                <span>WRITE ARTICLE</span>
             </button>
         </div>
     </header>
 
-    <!-- Permanent Live Leaderboard (Always Visible for Real-Time Scores) -->
-    <div id="leaderboard" class="hud-glass">
+    <!-- Permanent Live Trending & Top Writers Scoreboard (Top Right) -->
+    <div id="leaderboard" class="hud-glass permanent-scoreboard">
         <div class="leader-header">
-            <span class="brand-title"><i class="bi bi-trophy-fill text-gold"></i> TOP SPONSORS</span>
+            <div class="board-tabs">
+                <button id="tab-trending" class="board-tab-btn active"><i class="bi bi-fire text-magenta"></i> TRENDING</button>
+                <button id="tab-authors" class="board-tab-btn"><i class="bi bi-trophy text-gold"></i> WRITERS</button>
+            </div>
             <span class="leader-live-tag"><span class="live-dot-gold"></span>LIVE</span>
         </div>
-        <div id="leader-list" class="leader-scroll">
-            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading...</div>
+        
+        <!-- Trending Articles Tab -->
+        <div id="trending-list" class="leader-scroll">
+            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading stories...</div>
         </div>
-    </div>
 
-    <!-- Collapsible Detailed Telemetry Popover (Only shows when clicking chevron) -->
-    <div id="detailed-stats-card" class="hud-glass stats-popover d-none">
-        <div class="popover-header">
-            <span><i class="bi bi-bar-chart-fill text-cyan"></i> MATRIX TELEMETRY</span>
-            <span class="badge-status" id="hud-phase-badge">GENESIS PHASE</span>
-        </div>
-        <div class="hud-stats-grid">
-            <div class="stat-item">
-                <span class="stat-label">TOTAL NODES</span>
-                <span class="stat-value text-cyan" id="card-total-users">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">SPILLOVERS</span>
-                <span class="stat-value text-magenta" id="card-spillovers">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">MAX DEPTH</span>
-                <span class="stat-value text-gold" id="card-depth">GEN 0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">NETWORK TRAFFIC</span>
-                <span class="stat-value"><span class="live-pulse"></span><span id="live-visitors">14</span> Online</span>
-            </div>
-        </div>
-        <div class="scarcity-box">
-            <div class="scarcity-labels">
-                <span id="scarcity-title">Genesis Open Access</span>
-                <span class="scarcity-ratio text-gold" id="scarcity-ratio">0 / 100</span>
-            </div>
-            <div class="progress-bar-wrap">
-                <div class="progress-bar-fill" id="scarcity-progress-fill" style="width: 0%;"></div>
-            </div>
-            <div class="scarcity-sub" id="scarcity-subtext">Free public placement active. User 101+ requires invite link.</div>
+        <!-- Top Writers Tab (Hidden by default) -->
+        <div id="authors-list" class="leader-scroll d-none">
+            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading writers...</div>
         </div>
     </div>
 
@@ -105,93 +96,186 @@
         <button id="ctrl-reset" title="Recenter Matrix"><i class="bi bi-crosshair"></i></button>
     </div>
 
-    <!-- Primary Action: Join Grid (Bottom Right) -->
+    <!-- Primary Action: Write / Branch (Bottom Right) -->
     <button id="add-btn" class="glow-pulse-btn">
         <i class="bi bi-plus-circle-fill"></i>
-        <span id="add-btn-text">JOIN MATRIX</span>
+        <span id="add-btn-text">PUBLISH ARTICLE</span>
     </button>
 
-    <!-- Compact Sleek Node Inspector (Appears when clicking any node) -->
-    <div id="node-inspector" class="compact-inspector hud-glass d-none">
-        <div class="compact-insp-head">
-            <div class="compact-profile-row">
-                <img id="insp-avatar" src="" alt="" class="compact-avatar">
-                <div class="compact-meta">
-                    <h4 id="insp-name" class="compact-name">Citizen</h4>
-                    <p id="insp-text" class="compact-quote">Tagline</p>
+    <!-- Slide-over Cyber-Editorial Reader Drawer -->
+    <div id="article-reader-drawer" class="reader-drawer hud-glass d-none">
+        <div class="reader-top-bar">
+            <div class="reader-top-left">
+                <span id="reader-category-pill" class="badge-cat cat-newsletter">NEWSLETTER</span>
+                <span id="reader-read-time" class="reader-read-time"><i class="bi bi-clock"></i> 3 min read</span>
+            </div>
+            <div class="reader-top-actions">
+                <button id="reader-pan-btn" class="reader-icon-btn" title="Center camera on this node in matrix">
+                    <i class="bi bi-crosshair"></i> <span>FOCUS IN MATRIX</span>
+                </button>
+                <button id="reader-close-btn" class="reader-close-x" title="Close Reader">&times;</button>
+            </div>
+        </div>
+
+        <div class="reader-scrollable">
+            <!-- Article Hero Banner -->
+            <div class="reader-hero">
+                <img id="reader-cover-img" src="" alt="Article Cover" class="reader-hero-cover">
+                <div class="reader-hero-overlay"></div>
+            </div>
+
+            <!-- In Reply To Breadcrumb -->
+            <div id="reader-reply-breadcrumb" class="reply-breadcrumb-banner d-none">
+                <div class="breadcrumb-info">
+                    <i class="bi bi-reply-fill text-cyan"></i>
+                    <span>In reply to: <strong id="reader-parent-title" class="text-white">Article Title</strong> by <span id="reader-parent-author" class="text-cyan">@Author</span></span>
+                </div>
+                <button id="reader-jump-parent-btn" class="btn-jump-parent">
+                    <i class="bi bi-arrow-up-left"></i> View Parent Node
+                </button>
+            </div>
+
+            <!-- Article Title & Author Byline -->
+            <div class="reader-meta-section">
+                <h1 id="reader-title" class="reader-headline">Article Headline</h1>
+                
+                <div class="reader-author-bar">
+                    <div class="author-profile">
+                        <img id="reader-author-avatar" src="" alt="" class="reader-avatar">
+                        <div class="author-details">
+                            <span id="reader-author-name" class="author-name">Author Name</span>
+                            <span id="reader-date" class="publish-date">Published today</span>
+                        </div>
+                    </div>
+
+                    <div class="reader-metrics-quick">
+                        <span class="quick-metric"><i class="bi bi-heart-fill text-magenta"></i> <span id="reader-quick-claps">0</span></span>
+                        <span class="quick-metric"><i class="bi bi-chat-dots-fill text-cyan"></i> <span id="reader-quick-replies">0</span></span>
+                    </div>
                 </div>
             </div>
-            <div class="compact-top-actions">
-                <span id="insp-spillover-tag" class="spillover-tag d-none">⚡ SPILLOVER</span>
-                <button id="inspector-close" class="compact-x">&times;</button>
+
+            <!-- Markdown Rendered Article Body -->
+            <div id="reader-content-body" class="reader-markdown-content">
+                <!-- Rich rendered markdown goes here -->
             </div>
-        </div>
 
-        <div class="compact-metrics">
-            <div class="c-metric"><span class="c-label">GEN:</span> <strong id="insp-depth" class="text-gold">1</strong></div>
-            <div class="c-metric"><span class="c-label">REFS:</span> <strong id="insp-direct-refs" class="text-cyan">0</strong></div>
-            <div class="c-metric"><span class="c-label">SLOTS:</span> <strong id="insp-grid-slots" class="text-magenta">0/5</strong></div>
-            <div class="c-metric"><span class="c-label">SPONSOR:</span> <button id="insp-jump-sponsor" class="mini-jump-btn">Root</button></div>
-        </div>
+            <!-- Reader Bottom Action Bar -->
+            <div class="reader-actions-bar">
+                <button id="reader-clap-btn" class="btn-clap" title="Clap for this article!">
+                    <i class="bi bi-heart-fill"></i>
+                    <span class="clap-text">CLAP</span>
+                    <span id="reader-clap-badge" class="clap-count">0</span>
+                </button>
 
-        <div class="compact-ref-row">
-            <input type="text" id="insp-ref-link" readonly class="compact-ref-input">
-            <button id="insp-copy-btn" class="compact-copy-btn"><i class="bi bi-copy"></i> COPY LINK</button>
+                <button id="reader-reply-btn" class="btn-reply-branch">
+                    <i class="bi bi-diagram-3-fill"></i>
+                    <span>REPLY AS NODE</span>
+                </button>
+
+                <button id="reader-share-btn" class="btn-share-link" title="Copy Deep-link">
+                    <i class="bi bi-link-45deg"></i>
+                    <span>COPY LINK</span>
+                </button>
+            </div>
+
+            <!-- Direct Branch Replies Section -->
+            <div class="branch-replies-section">
+                <div class="section-title-row">
+                    <h3><i class="bi bi-diagram-3 text-cyan"></i> Branch Replies (<span id="reader-replies-count">0</span>)</h3>
+                    <p class="section-subtitle">Discussions and counterpoints branching directly from this article</p>
+                </div>
+
+                <div id="reader-replies-container" class="branch-replies-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Registration / Node Placement Modal -->
+    <!-- Article & Branch Reply Composer Modal -->
     <div id="overlay"></div>
-    <div id="modal" class="cyber-modal hud-glass">
+    <div id="composer-modal" class="cyber-modal hud-glass d-none">
         <div class="modal-header">
-            <h2 id="modal-title"><i class="bi bi-cpu text-cyan"></i> Connect Node</h2>
-            <button id="modal-close-x" class="modal-x">&times;</button>
+            <h2 id="composer-modal-title"><i class="bi bi-pen-fill text-cyan"></i> Write Article</h2>
+            <button id="composer-close-x" class="modal-x">&times;</button>
         </div>
 
-        <!-- Sponsor Callout Banner -->
-        <div id="sponsor-banner" class="sponsor-banner d-none">
-            <img id="sponsor-banner-avatar" src="" alt="Sponsor" class="sponsor-mini-avatar">
+        <!-- Replying-To Callout Banner -->
+        <div id="composer-reply-target-banner" class="sponsor-banner d-none">
+            <i class="bi bi-reply-fill text-cyan fs-4"></i>
             <div class="sponsor-meta">
-                <div class="sponsor-label">VERIFIED SPONSOR INVITATION</div>
-                <div class="sponsor-name" id="sponsor-banner-name">Invited by Citizen</div>
+                <div class="sponsor-label">BRANCHING REPLY TO</div>
+                <div class="sponsor-name" id="composer-target-title">Parent Article Title</div>
+                <div class="small opacity-75" id="composer-target-author">by @Author</div>
             </div>
         </div>
 
-        <!-- Lockout Notice for Post-100 Users without Referral Link -->
-        <div id="lockout-notice" class="lockout-banner d-none">
-            <i class="bi bi-shield-lock-fill text-magenta fs-4"></i>
-            <div>
-                <div class="text-magenta fw-bold">STRICT INVITE-ONLY ACCESS</div>
-                <div class="small opacity-75">Genesis 100 slots filled. Enter an 8-character referral code below.</div>
-            </div>
-        </div>
+        <form id="article-form" onsubmit="return false;">
+            <input type="hidden" id="form-parent-id" value="">
 
-        <form id="node-form" onsubmit="return false;">
-            <div class="input-group" id="ref-input-group">
-                <label>Sponsor Referral Code (8-Hex):</label>
-                <input type="text" id="node-ref-input" placeholder="e.g. 5c0ad409 (Optional in Genesis)" maxlength="8">
-                <div class="input-hint" id="ref-status-hint">Leave blank for root Genesis placement</div>
-            </div>
+            <div class="form-row-two">
+                <div class="input-group">
+                    <label>Category / Perspective Type *:</label>
+                    <select id="form-category" class="cyber-select">
+                        <option value="Perspective">💡 Perspective (Thought / Opinion)</option>
+                        <option value="Counterpoint">⚡ Counterpoint (Rebuttal / Critique)</option>
+                        <option value="Deep Dive">🔬 Deep Dive (Technical / Analysis)</option>
+                        <option value="Discussion">💬 Discussion (Question / Addendum)</option>
+                        <option value="Newsletter">📰 Newsletter Edition (Main Pillar)</option>
+                    </select>
+                </div>
 
-            <div class="input-group">
-                <label>Citizen Name / Alias *:</label>
-                <input type="text" id="node-name" placeholder="e.g. CyberVanguard" maxlength="40" required>
-            </div>
-
-            <div class="input-group">
-                <label>Tagline / Broadcast *:</label>
-                <input type="text" id="node-text" placeholder="e.g. Decentralized Future Builder" maxlength="60" required>
+                <div class="input-group">
+                    <label>Author / Pen Name *:</label>
+                    <input type="text" id="form-author" placeholder="e.g. Satoshi, Elena Vance" maxlength="40" required>
+                </div>
             </div>
 
             <div class="input-group">
-                <label>Profile Avatar (Optional Image):</label>
-                <input type="file" id="node-image" accept="image/*">
+                <label>Article Headline / Title *:</label>
+                <input type="text" id="form-title" placeholder="e.g. In Defense of Decentralized Knowledge Graphs" maxlength="100" required>
+            </div>
+
+            <div class="input-group">
+                <div class="label-with-hint">
+                    <label>Article Body (Markdown Supported) *:</label>
+                    <span class="input-hint">Use ## Headings, > Quotes, `code`, **bold**, - lists</span>
+                </div>
+                <textarea id="form-content" rows="7" placeholder="Write your full story or perspective here... Supports markdown formatting." required></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Cover Art Preset (Optional):</label>
+                <div class="cover-preset-grid">
+                    <label class="cover-preset-label">
+                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80" checked>
+                        <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=120&auto=format&fit=crop&q=80" alt="Cyber 1">
+                    </label>
+                    <label class="cover-preset-label">
+                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80">
+                        <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=120&auto=format&fit=crop&q=80" alt="Cyber 2">
+                    </label>
+                    <label class="cover-preset-label">
+                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80">
+                        <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=120&auto=format&fit=crop&q=80" alt="Cyber 3">
+                    </label>
+                    <label class="cover-preset-label">
+                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80">
+                        <img src="https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=120&auto=format&fit=crop&q=80" alt="Cyber 4">
+                    </label>
+                    <label class="cover-preset-label">
+                        <input type="radio" name="cover-preset" value="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80">
+                        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=120&auto=format&fit=crop&q=80" alt="Cyber 5">
+                    </label>
+                </div>
             </div>
 
             <div class="btn-group">
-                <button type="button" id="cancel-btn" class="btn-secondary">CANCEL</button>
-                <button type="submit" id="submit-btn" class="btn-primary">
-                    <span id="submit-btn-text">CONNECT NODE</span>
+                <button type="button" id="composer-cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="composer-submit-btn" class="btn-primary">
+                    <i class="bi bi-send-fill"></i>
+                    <span id="composer-submit-text">PUBLISH TO MATRIX</span>
                 </button>
             </div>
         </form>
@@ -200,15 +284,27 @@
     <!-- Canvas Viewport -->
     <div id="canvas-container">
         <div id="tree-canvas">
-            <svg id="svg-canvas" width="8000" height="8000">
+            <svg id="svg-canvas" width="12000" height="12000">
                 <defs>
-                    <linearGradient id="circuit-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#00f3ff" stop-opacity="0.9" />
-                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.9" />
+                    <linearGradient id="newsletter-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00f3ff" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.85" />
                     </linearGradient>
-                    <linearGradient id="spillover-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#d946ef" stop-opacity="0.95" />
-                        <stop offset="100%" stop-color="#a855f7" stop-opacity="0.95" />
+                    <linearGradient id="perspective-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#059669" stop-opacity="0.85" />
+                    </linearGradient>
+                    <linearGradient id="counterpoint-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#be123c" stop-opacity="0.85" />
+                    </linearGradient>
+                    <linearGradient id="deepdive-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#a855f7" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.85" />
+                    </linearGradient>
+                    <linearGradient id="discussion-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#d97706" stop-opacity="0.85" />
                     </linearGradient>
                 </defs>
             </svg>
