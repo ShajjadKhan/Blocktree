@@ -1,6 +1,5 @@
-// BlockTree - High-End Matrix Engine & Circuit Canvas
+// BlockTree - Streamlined Minimal Matrix Engine
 
-// Panzoom Setup
 const canvasElem = document.getElementById("tree-canvas");
 const panzoom = Panzoom(canvasElem, {
     maxScale: 3.5,
@@ -13,17 +12,13 @@ const panzoom = Panzoom(canvasElem, {
 
 canvasElem.parentElement.addEventListener("wheel", panzoom.zoomWithWheel);
 
-// Web Audio API Synthesizer (Zero External Dependencies)
+// Sound Synthesizer
 let soundEnabled = localStorage.getItem('blocktree_sound') !== 'false';
 let audioCtx = null;
 
 function getAudioContext() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     return audioCtx;
 }
 
@@ -40,50 +35,33 @@ function playSound(type) {
         if (type === 'click') {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(800, now);
-            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.06);
-            gain.gain.setValueAtTime(0.08, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-            osc.start(now);
-            osc.stop(now + 0.06);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now); osc.stop(now + 0.05);
         } else if (type === 'success') {
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(523.25, now); // C5
-            osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-            osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-            osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
-            gain.gain.setValueAtTime(0.12, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-            osc.start(now);
-            osc.stop(now + 0.4);
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.08);
+            osc.frequency.setValueAtTime(783.99, now + 0.16);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc.start(now); osc.stop(now + 0.35);
         } else if (type === 'copy') {
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(1200, now);
-            osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
-            gain.gain.setValueAtTime(0.06, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-            osc.start(now);
-            osc.stop(now + 0.08);
+            osc.frequency.setValueAtTime(1000, now);
+            osc.frequency.exponentialRampToValueAtTime(500, now + 0.07);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+            osc.start(now); osc.stop(now + 0.07);
         }
-    } catch (e) {
-        // Audio policy ignore
-    }
+    } catch (e) {}
 }
 
-// Global Matrix State
-let currentNodes = [];
-let nodeMap = {};
-let systemStats = {};
-let inviterInfo = null;
-
-// Audio Toggle Button
 const audioBtn = document.getElementById('audio-toggle');
 const audioIcon = document.getElementById('audio-icon');
 function updateAudioUI() {
-    if (soundEnabled) {
-        audioIcon.className = 'bi bi-volume-up-fill text-cyan';
-    } else {
-        audioIcon.className = 'bi bi-volume-mute-fill opacity-50';
-    }
+    audioIcon.className = soundEnabled ? 'bi bi-volume-up-fill text-cyan' : 'bi bi-volume-mute-fill opacity-50';
 }
 updateAudioUI();
 audioBtn.addEventListener('click', () => {
@@ -98,25 +76,19 @@ function showToast(message, isError = false) {
     const toast = document.getElementById('toast');
     const toastMsg = document.getElementById('toast-message');
     const toastIcon = document.getElementById('toast-icon');
-    
     toastMsg.textContent = message;
     toastIcon.className = isError ? 'bi bi-exclamation-octagon-fill text-magenta' : 'bi bi-check-circle-fill text-cyan';
     toast.classList.remove('d-none');
-    
-    setTimeout(() => {
-        toast.classList.add('d-none');
-    }, 4500);
+    setTimeout(() => { toast.classList.add('d-none'); }, 3500);
 }
 
-// Camera Pan & Zoom Helper
+// Camera Navigation
 function panToCoordinate(targetX, targetY, scale = 1.0) {
     const container = document.getElementById('canvas-container');
     const viewW = container.clientWidth;
     const viewH = container.clientHeight;
-    
     const panX = (viewW / 2) - (targetX * scale);
     const panY = (viewH / 2) - (targetY * scale);
-    
     panzoom.zoom(scale, { animate: true });
     panzoom.pan(panX, panY, { animate: true });
 }
@@ -125,24 +97,22 @@ function focusNode(nodeId) {
     const node = nodeMap[nodeId];
     if (node) {
         playSound('click');
-        panToCoordinate(node.x + 80, node.y + 70, 1.15);
-        
-        // Highlight node card visually
+        panToCoordinate(node.x + 75, node.y + 60, 1.15);
         const elem = document.querySelector(`.node[data-id="${nodeId}"]`);
         if (elem) {
-            elem.style.transform = 'translateY(-8px) scale(1.15)';
+            elem.style.transform = 'translateY(-6px) scale(1.12)';
             elem.style.borderColor = '#00f3ff';
-            elem.style.boxShadow = '0 0 35px #00f3ff';
+            elem.style.boxShadow = '0 0 30px #00f3ff';
             setTimeout(() => {
                 elem.style.transform = '';
                 elem.style.borderColor = '';
                 elem.style.boxShadow = '';
-            }, 1800);
+            }, 1500);
         }
     }
 }
 
-// Copy Referral Link
+// Copy Helper
 window.copyReferral = (refCode, e) => {
     if (e) e.stopPropagation();
     playSound('copy');
@@ -154,38 +124,31 @@ window.copyReferral = (refCode, e) => {
     });
 };
 
-// Node Inspector Drawer
+// Global Matrix State
+let currentNodes = [];
+let nodeMap = {};
+let systemStats = {};
+
+// Compact Node Inspector
 function openInspector(node) {
     playSound('click');
-    const drawer = document.getElementById('node-inspector');
+    const inspector = document.getElementById('node-inspector');
     
     document.getElementById('insp-avatar').src = node.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + node.name;
     document.getElementById('insp-name').textContent = node.name;
     document.getElementById('insp-text').textContent = `"${node.text}"`;
     
-    const spilloverTag = document.getElementById('insp-spillover-tag');
-    if (node.is_spillover) {
-        spilloverTag.classList.remove('d-none');
-    } else {
-        spilloverTag.classList.add('d-none');
-    }
+    const spillTag = document.getElementById('insp-spillover-tag');
+    if (node.is_spillover) spillTag.classList.remove('d-none');
+    else spillTag.classList.add('d-none');
     
-    document.getElementById('insp-depth').textContent = `GEN ${node.depth}`;
-    document.getElementById('insp-direct-refs').textContent = `${node.direct_refs} Recruits`;
-    document.getElementById('insp-grid-slots').textContent = `${node.direct_children} / 5 Filled`;
-    document.getElementById('insp-joined').textContent = node.created_at || 'Genesis Initial';
+    document.getElementById('insp-depth').textContent = node.depth;
+    document.getElementById('insp-direct-refs').textContent = node.direct_refs;
+    document.getElementById('insp-grid-slots').textContent = `${node.direct_children}/5`;
     
     const sponsorBtn = document.getElementById('insp-jump-sponsor');
-    sponsorBtn.textContent = node.sponsor_name;
-    sponsorBtn.onclick = () => {
-        if (node.sponsor_id) focusNode(node.sponsor_id);
-    };
-    
-    const parentBtn = document.getElementById('insp-jump-parent');
-    parentBtn.textContent = node.parent_name;
-    parentBtn.onclick = () => {
-        if (node.parent_id) focusNode(node.parent_id);
-    };
+    sponsorBtn.textContent = (node.sponsor_name || 'Root').slice(0, 10);
+    sponsorBtn.onclick = () => { if (node.sponsor_id) focusNode(node.sponsor_id); };
     
     const refLinkInput = document.getElementById('insp-ref-link');
     const fullLink = `${window.location.origin}/?ref=${node.ref_code}`;
@@ -194,21 +157,62 @@ function openInspector(node) {
     document.getElementById('insp-copy-btn').onclick = () => {
         playSound('copy');
         navigator.clipboard.writeText(fullLink);
-        showToast("Referral Link copied to clipboard!");
+        showToast("Referral Link copied!");
     };
     
-    document.getElementById('insp-focus-btn').onclick = () => {
-        focusNode(node.id);
-    };
-    
-    drawer.classList.add('open');
+    inspector.classList.remove('d-none');
 }
 
 document.getElementById('inspector-close').addEventListener('click', () => {
-    document.getElementById('node-inspector').classList.remove('open');
+    document.getElementById('node-inspector').classList.add('d-none');
 });
 
-// Load Matrix Telemetry & Render Grid
+// UI Toggles (Stats popover & Leaderboard popover)
+const toggleStatsBtn = document.getElementById('toggle-stats-btn');
+const detailedStatsCard = document.getElementById('detailed-stats-card');
+const statsChevron = document.getElementById('stats-chevron');
+
+toggleStatsBtn.addEventListener('click', () => {
+    playSound('click');
+    const isClosed = detailedStatsCard.classList.contains('d-none');
+    if (isClosed) {
+        detailedStatsCard.classList.remove('d-none');
+        toggleStatsBtn.classList.add('open');
+        document.getElementById('leaderboard').classList.add('d-none');
+    } else {
+        detailedStatsCard.classList.add('d-none');
+        toggleStatsBtn.classList.remove('open');
+    }
+});
+
+const leaderboardToggleBtn = document.getElementById('leaderboard-toggle-btn');
+const leaderboardCard = document.getElementById('leaderboard');
+const leaderboardCloseBtn = document.getElementById('leaderboard-close-btn');
+
+leaderboardToggleBtn.addEventListener('click', () => {
+    playSound('click');
+    const isClosed = leaderboardCard.classList.contains('d-none');
+    if (isClosed) {
+        leaderboardCard.classList.remove('d-none');
+        detailedStatsCard.classList.add('d-none');
+        toggleStatsBtn.classList.remove('open');
+    } else {
+        leaderboardCard.classList.add('d-none');
+    }
+});
+
+leaderboardCloseBtn.addEventListener('click', () => {
+    leaderboardCard.classList.add('d-none');
+});
+
+// Close popovers when clicking on canvas
+canvasElem.addEventListener('click', () => {
+    detailedStatsCard.classList.add('d-none');
+    toggleStatsBtn.classList.remove('open');
+    leaderboardCard.classList.add('d-none');
+});
+
+// Load Matrix
 async function loadMatrix(autoCenter = false) {
     try {
         const res = await fetch('/api/nodes');
@@ -218,60 +222,70 @@ async function loadMatrix(autoCenter = false) {
         systemStats = data.stats || {};
         nodeMap = {};
         
-        currentNodes.forEach(n => {
-            nodeMap[n.id] = n;
-        });
+        currentNodes.forEach(n => { nodeMap[n.id] = n; });
         
-        // 1. Update Telemetry HUD
+        // 1. Update Compact Top Navigation Bar
         document.getElementById('stat-total-users').textContent = systemStats.total_users || 0;
         document.getElementById('stat-spillovers').textContent = systemStats.total_spillovers || 0;
         document.getElementById('stat-depth').textContent = `GEN ${systemStats.max_depth || 0}`;
         
-        // Live visitors random simulation
-        const liveCount = 10 + Math.floor(Math.random() * 8);
-        document.getElementById('live-visitors').textContent = liveCount;
+        const pillBadge = document.getElementById('scarcity-pill-badge');
+        if (systemStats.is_invite_only) {
+            pillBadge.textContent = "🔒 INVITE-ONLY";
+            pillBadge.style.borderColor = "#d946ef";
+            pillBadge.style.color = "#d946ef";
+        } else {
+            pillBadge.textContent = `${systemStats.genesis_slots_left} / 100 Left`;
+            pillBadge.style.borderColor = "";
+            pillBadge.style.color = "";
+        }
         
-        // 2. Update Scarcity / FOMO Progress
-        const ratioText = `${systemStats.total_users} / ${systemStats.genesis_limit}`;
-        document.getElementById('scarcity-ratio').textContent = ratioText;
+        // Popover detailed values
+        document.getElementById('card-total-users').textContent = systemStats.total_users || 0;
+        document.getElementById('card-spillovers').textContent = systemStats.total_spillovers || 0;
+        document.getElementById('card-depth').textContent = `GEN ${systemStats.max_depth || 0}`;
+        document.getElementById('live-visitors').textContent = 12 + Math.floor(Math.random() * 6);
         
         const pct = Math.min(100, (systemStats.total_users / systemStats.genesis_limit) * 100);
         document.getElementById('scarcity-progress-fill').style.width = `${pct}%`;
+        document.getElementById('scarcity-ratio').textContent = `${systemStats.total_users} / ${systemStats.genesis_limit}`;
         
         const addBtn = document.getElementById('add-btn');
         const addBtnText = document.getElementById('add-btn-text');
         const phaseBadge = document.getElementById('hud-phase-badge');
         
         if (systemStats.is_invite_only) {
-            phaseBadge.textContent = "INVITE-ONLY (LOCKED)";
+            phaseBadge.textContent = "INVITE-ONLY LOCKED";
             phaseBadge.classList.add('locked');
-            document.getElementById('scarcity-title').textContent = "Genesis Full - Exclusivity Active";
-            document.getElementById('scarcity-subtext').textContent = "Strict referral invitation code required for all new citizens.";
+            document.getElementById('scarcity-title').textContent = "Genesis Full - Invite Only";
+            document.getElementById('scarcity-subtext').textContent = "Strict referral code required for all new citizens.";
             addBtnText.textContent = "INVITE-ONLY ACCESS";
             addBtn.classList.add('locked-btn');
         } else {
             phaseBadge.textContent = "GENESIS PHASE";
             phaseBadge.classList.remove('locked');
             document.getElementById('scarcity-title').textContent = "Genesis Open Access";
-            document.getElementById('scarcity-subtext').textContent = `${systemStats.genesis_slots_left} slots remain before matrix locks to Invite-Only.`;
+            document.getElementById('scarcity-subtext').textContent = `${systemStats.genesis_slots_left} slots remain before matrix locks.`;
             addBtnText.textContent = "JOIN MATRIX";
             addBtn.classList.remove('locked-btn');
         }
         
-        // 3. Populate Leaderboard
+        // 2. Populate Leaderboard
         const leaderList = document.getElementById('leader-list');
+        const leaderBadge = document.getElementById('leader-count-badge');
+        leaderBadge.textContent = data.leaders ? data.leaders.length : 0;
+        
         if (!data.leaders || data.leaders.length === 0) {
-            leaderList.innerHTML = '<div class="leader-loading">No referrals recorded yet</div>';
+            leaderList.innerHTML = '<div class="leader-loading">No referrals yet</div>';
         } else {
             let html = '';
             data.leaders.forEach((l, i) => {
-                const rankClass = i === 0 ? 'top-1' : (i === 1 ? 'top-2' : (i === 2 ? 'top-3' : ''));
                 const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `#${i+1}`));
                 html += `
                     <div class="leader-row" onclick="focusNode(${l.id})">
-                        <span class="leader-rank ${rankClass}">${medal}</span>
+                        <span>${medal}</span>
                         <img class="leader-avatar" src="${l.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + l.name}" alt="">
-                        <span class="leader-name" title="${l.name}">${l.name}</span>
+                        <span class="leader-name">${l.name}</span>
                         <span class="leader-count">${l.count} Ref</span>
                     </div>
                 `;
@@ -279,14 +293,11 @@ async function loadMatrix(autoCenter = false) {
             leaderList.innerHTML = html;
         }
         
-        // 4. Render Nodes on Canvas
+        // 3. Render Nodes on Canvas
         const canvas = document.getElementById('tree-canvas');
         const svgCanvas = document.getElementById('svg-canvas');
         
-        // Clear previous nodes (preserve SVG)
         canvas.querySelectorAll('.node').forEach(el => el.remove());
-        
-        // Clear previous SVG paths
         svgCanvas.querySelectorAll('path.circuit-line').forEach(p => p.remove());
         
         currentNodes.forEach(node => {
@@ -296,18 +307,12 @@ async function loadMatrix(autoCenter = false) {
             div.style.left = `${node.x}px`;
             div.style.top = `${node.y}px`;
             
-            if (node.id === 1 || node.parent_id === null) {
-                div.classList.add('root-node');
-            } else if (node.is_spillover) {
-                div.classList.add('spillover-node');
-            }
+            if (node.id === 1 || node.parent_id === null) div.classList.add('root-node');
+            else if (node.is_spillover) div.classList.add('spillover-node');
             
-            // Slots dots representation
             const filledCount = node.direct_children || 0;
             let slotsDots = '';
-            for (let s = 0; s < 5; s++) {
-                slotsDots += (s < filledCount) ? '●' : '○';
-            }
+            for (let s = 0; s < 5; s++) slotsDots += (s < filledCount) ? '●' : '○';
             
             const crownHtml = (node.id === 1) ? '<div class="node-crown">👑</div>' : '';
             const spilloverHtml = node.is_spillover ? '<div class="node-spillover-badge">⚡ SPILLOVER</div>' : '';
@@ -336,12 +341,12 @@ async function loadMatrix(autoCenter = false) {
             
             canvas.appendChild(div);
             
-            // 5. Draw Orthogonal 90-Degree Circuit Line from Parent
+            // Draw Orthogonal 90-Degree Circuit Line
             if (node.parent_id && nodeMap[node.parent_id]) {
                 const parent = nodeMap[node.parent_id];
-                const fromX = parent.x + 80;
-                const fromY = parent.y + 135;
-                const toX = node.x + 80;
+                const fromX = parent.x + 77;
+                const fromY = parent.y + 128;
+                const toX = node.x + 77;
                 const toY = node.y;
                 const midY = (fromY + toY) / 2;
                 
@@ -356,21 +361,9 @@ async function loadMatrix(autoCenter = false) {
             }
         });
         
-        // 6. Update Activity Ticker with Recent Joins
-        if (currentNodes.length > 1) {
-            const latest = currentNodes[currentNodes.length - 1];
-            const tickerEl = document.getElementById('ticker-text');
-            if (latest.is_spillover) {
-                tickerEl.innerHTML = `⚡ <strong>${latest.name}</strong> placed via spillover beneath <strong>${latest.parent_name}</strong> (Sponsored by ${latest.sponsor_name})`;
-            } else {
-                tickerEl.innerHTML = `🌐 <strong>${latest.name}</strong> joined the matrix under <strong>${latest.parent_name}</strong> (Gen ${latest.depth})`;
-            }
-        }
-        
-        // Auto-center on initial load
         if (autoCenter && currentNodes.length > 0) {
             const root = currentNodes[0];
-            panToCoordinate(root.x + 80, root.y + 150, 0.85);
+            panToCoordinate(root.x + 75, root.y + 120, 0.80);
         }
         
     } catch (err) {
@@ -378,25 +371,20 @@ async function loadMatrix(autoCenter = false) {
     }
 }
 
-// Search & Fast Jump HUD
+// Search HUD
 const searchInput = document.getElementById('node-search-input');
 const searchDropdown = document.getElementById('search-results-dropdown');
 
 searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim().toLowerCase();
-    if (!q) {
-        searchDropdown.classList.add('d-none');
-        return;
-    }
+    if (!q) { searchDropdown.classList.add('d-none'); return; }
     
     const matches = currentNodes.filter(n => 
-        n.name.toLowerCase().includes(q) || 
-        n.ref_code.toLowerCase().includes(q)
-    ).slice(0, 6);
+        n.name.toLowerCase().includes(q) || n.ref_code.toLowerCase().includes(q)
+    ).slice(0, 5);
     
     if (matches.length === 0) {
         searchDropdown.innerHTML = '<div class="search-item text-muted">No citizen found</div>';
-        searchDropdown.classList.remove('d-none');
     } else {
         let html = '';
         matches.forEach(m => {
@@ -408,8 +396,8 @@ searchInput.addEventListener('input', () => {
             `;
         });
         searchDropdown.innerHTML = html;
-        searchDropdown.classList.remove('d-none');
     }
+    searchDropdown.classList.remove('d-none');
 });
 
 window.selectSearchNode = (nodeId) => {
@@ -424,30 +412,21 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Floating Canvas Controls
+// Canvas Controls
 document.getElementById('ctrl-zoom-in').addEventListener('click', () => {
-    playSound('click');
-    panzoom.zoomIn({ animate: true });
+    playSound('click'); panzoom.zoomIn({ animate: true });
 });
-
 document.getElementById('ctrl-zoom-out').addEventListener('click', () => {
-    playSound('click');
-    panzoom.zoomOut({ animate: true });
+    playSound('click'); panzoom.zoomOut({ animate: true });
 });
-
 document.getElementById('ctrl-reset').addEventListener('click', () => {
     playSound('click');
     if (currentNodes.length > 0) {
-        panToCoordinate(currentNodes[0].x + 80, currentNodes[0].y + 150, 0.85);
+        panToCoordinate(currentNodes[0].x + 75, currentNodes[0].y + 120, 0.80);
     }
 });
 
-document.getElementById('ctrl-fit').addEventListener('click', () => {
-    playSound('click');
-    panzoom.zoom(0.22, { animate: true });
-});
-
-// Registration Modal & URL Referral Handling
+// Registration Modal
 const modal = document.getElementById('modal');
 const overlay = document.getElementById('overlay');
 const addBtn = document.getElementById('add-btn');
@@ -461,15 +440,10 @@ function openJoinModal() {
     playSound('click');
     modal.style.display = 'block';
     overlay.style.display = 'block';
-    
-    // Check if invite-only mode is active and no ref code in URL
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = (urlParams.get('ref') || refInput.value || '').trim();
-    
     if (systemStats.is_invite_only && !refCode) {
         lockoutNotice.classList.remove('d-none');
-        document.getElementById('ref-status-hint').textContent = "Mandatory: Enter valid 8-digit sponsor code to register.";
-        document.getElementById('ref-status-hint').style.color = "#d946ef";
     } else {
         lockoutNotice.classList.add('d-none');
     }
@@ -485,7 +459,7 @@ cancelBtn.addEventListener('click', closeJoinModal);
 modalCloseX.addEventListener('click', closeJoinModal);
 overlay.addEventListener('click', closeJoinModal);
 
-// Instant Validation on Referral Code Input
+// Instant Ref Code Validation
 refInput.addEventListener('change', async () => {
     const code = refInput.value.trim();
     if (code.length === 8) {
@@ -495,7 +469,6 @@ refInput.addEventListener('change', async () => {
             if (data.valid && data.sponsor) {
                 document.getElementById('sponsor-banner-avatar').src = data.sponsor.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + data.sponsor.name;
                 document.getElementById('sponsor-banner-name').textContent = `Invited by: ${data.sponsor.name}`;
-                document.getElementById('sponsor-banner-sub').textContent = `${data.sponsor.direct_referrals} members sponsored • 1x5 auto-spillover active`;
                 sponsorBanner.classList.remove('d-none');
                 lockoutNotice.classList.add('d-none');
                 document.getElementById('ref-status-hint').textContent = "Verified active sponsor!";
@@ -511,116 +484,95 @@ refInput.addEventListener('change', async () => {
     }
 });
 
-// Auto-Detect Referral Code from URL
+// URL Ref Parameter Detection
 async function checkUrlReferral() {
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
-    
     if (refCode) {
         refInput.value = refCode;
         try {
             const res = await fetch(`/api/check-ref/${refCode}`);
             const data = await res.json();
             if (data.valid && data.sponsor) {
-                inviterInfo = data.sponsor;
-                document.getElementById('sponsor-banner-avatar').src = inviterInfo.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + inviterInfo.name;
-                document.getElementById('sponsor-banner-name').textContent = `Invited by: ${inviterInfo.name}`;
-                document.getElementById('sponsor-banner-sub').textContent = `${inviterInfo.direct_referrals} members recruited • Verified invitation`;
+                document.getElementById('sponsor-banner-avatar').src = data.sponsor.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + data.sponsor.name;
+                document.getElementById('sponsor-banner-name').textContent = `Invited by: ${data.sponsor.name}`;
                 sponsorBanner.classList.remove('d-none');
-                
-                // Automatically open join modal for invited visitors
-                setTimeout(() => {
-                    openJoinModal();
-                }, 600);
+                setTimeout(() => { openJoinModal(); }, 600);
             }
         } catch (e) {}
     }
 }
 
-// Form Submission & Anti-Spam UX
+// Form Submission
 document.getElementById('node-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
     const name = document.getElementById('node-name').value.trim();
     const text = document.getElementById('node-text').value.trim();
     const refCode = refInput.value.trim();
     const fileInput = document.getElementById('node-image');
     
     if (!name || !text) {
-        alert("Please provide both your Name and Tagline!");
+        alert("Please enter your Name and Tagline!");
         return;
     }
     
     if (systemStats.is_invite_only && !refCode) {
-        alert("Matrix Locked: An invitation referral code is required to join now that 100 Genesis slots are filled!");
+        alert("Matrix Locked: 8-digit referral code is required!");
         return;
     }
     
     const submitBtn = document.getElementById('submit-btn');
     const submitBtnText = document.getElementById('submit-btn-text');
     submitBtn.disabled = true;
-    submitBtnText.textContent = "TRANSMITTING...";
+    submitBtnText.textContent = "CONNECTING...";
     
     const sendData = async (base64Img = '') => {
         try {
             const res = await fetch('/api/nodes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name,
-                    text: text,
-                    image: base64Img,
-                    ref_id: refCode || null
-                })
+                body: JSON.stringify({ name: name, text: text, image: base64Img, ref_id: refCode || null })
             });
-            
             const result = await res.json();
             submitBtn.disabled = false;
-            submitBtnText.textContent = "TRANSMIT & DEPLOY";
+            submitBtnText.textContent = "CONNECT NODE";
             
             if (res.status !== 200) {
-                alert(result.error || "Connection to matrix failed.");
+                alert(result.error || "Failed to join matrix.");
                 return;
             }
             
-            // Success!
             playSound('success');
             closeJoinModal();
-            
-            // Clear inputs
             document.getElementById('node-name').value = '';
             document.getElementById('node-text').value = '';
             fileInput.value = '';
             
             showToast(result.is_spillover 
-                ? `⚡ Node Deployed via Spillover under ID #${result.placed_under_id}!` 
-                : `🌐 Node Successfully Integrated into Matrix!`
+                ? `⚡ Spillover Node connected under #${result.placed_under_id}!`
+                : `🌐 Connected to Matrix!`
             );
             
-            // Reload grid and focus on newly created node
             await loadMatrix(false);
             if (result.node_id) {
                 setTimeout(() => {
                     focusNode(result.node_id);
-                    if (nodeMap[result.node_id]) {
-                        openInspector(nodeMap[result.node_id]);
-                    }
-                }, 400);
+                    if (nodeMap[result.node_id]) openInspector(nodeMap[result.node_id]);
+                }, 350);
             }
-            
         } catch (err) {
             submitBtn.disabled = false;
-            submitBtnText.textContent = "TRANSMIT & DEPLOY";
-            alert("Network transmission failed. Check server status.");
+            submitBtnText.textContent = "CONNECT NODE";
+            alert("Network transmission error.");
         }
     };
     
     if (fileInput.files && fileInput.files[0]) {
         const file = fileInput.files[0];
         if (file.size > 2.5 * 1024 * 1024) {
-            alert("Profile image must be smaller than 2.5 MB.");
+            alert("Image must be smaller than 2.5 MB.");
             submitBtn.disabled = false;
-            submitBtnText.textContent = "TRANSMIT & DEPLOY";
+            submitBtnText.textContent = "CONNECT NODE";
             return;
         }
         const reader = new FileReader();
@@ -631,13 +583,18 @@ document.getElementById('node-form').addEventListener('submit', async (e) => {
     }
 });
 
-// Initialize on DOM Ready
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeJoinModal();
+        document.getElementById('node-inspector').classList.add('d-none');
+        detailedStatsCard.classList.add('d-none');
+        toggleStatsBtn.classList.remove('open');
+        leaderboardCard.classList.add('d-none');
+    }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     await loadMatrix(true);
     await checkUrlReferral();
-    
-    // Auto-poll matrix every 25 seconds for live community updates
-    setInterval(() => {
-        loadMatrix(false);
-    }, 25000);
+    setInterval(() => { loadMatrix(false); }, 30000);
 });
