@@ -1789,5 +1789,169 @@ def admin_get_audit_logs():
     conn.close()
     return jsonify({"status": "success", "logs": logs})
 
+# -------------------------------------------------------------
+# SEED DEMO KNOWLEDGE MATRIX
+# -------------------------------------------------------------
+@app.route('/api/seed-demo', methods=['POST'])
+def seed_demo_matrix():
+    """Populate matrix with rich curated sample discourse branches for live exploration."""
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Ensure demo authors exist
+    authors = [
+        ("satoshi_ed", "Satoshi Editorial", "editorial@blocktree.org", generate_password_hash("DemoSecret123!"), "Core Editorial Dispatch for the Spatial Knowledge Graph", "https://api.dicebear.com/7.x/bottts/svg?seed=Satoshi", "Founding Editor", 1),
+        ("elena_vance", "Elena Vance", "elena@discourse.org", generate_password_hash("DemoSecret123!"), "Cognitive Architect & Digital Epistemology Researcher", "https://api.dicebear.com/7.x/bottts/svg?seed=Elena", "Senior Fellow", 1),
+        ("aris_thorne", "Dr. Aris Thorne", "aris@distributed.tech", generate_password_hash("DemoSecret123!"), "Distributed Systems & Graph Database Architect", "https://api.dicebear.com/7.x/bottts/svg?seed=Aris", "Distinguished Architect", 1),
+        ("marcus_chen", "Marcus Chen", "marcus@systems.io", generate_password_hash("DemoSecret123!"), "Full-Stack Reliability & Visual Scaling Specialist", "https://api.dicebear.com/7.x/bottts/svg?seed=Marcus", "Verified Critic", 1),
+    ]
+    
+    for u, p, e, ph, b, av, bg, iv in authors:
+        c.execute("""
+            INSERT OR IGNORE INTO authors (username, pen_name, email, password_hash, bio, avatar, badge, is_verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (u, p, e, ph, b, av, bg, iv))
+    
+    # Retrieve author IDs
+    c.execute("SELECT id, username FROM authors")
+    auth_map = {r['username']: r['id'] for r in c.fetchall()}
+
+    # 7 Rich Editorial Nodes (with spatial layout and branching references)
+    demo_nodes = [
+        {
+            "id": 1,
+            "name": "Satoshi Editorial",
+            "author_id": auth_map.get("satoshi_ed", 1),
+            "parent_id": None,
+            "title": "Matrix Dispatch #01: The Dawn of Spatial Knowledge",
+            "category": "Newsletter",
+            "text": "Welcome to the world's first spatial newsletter where ideas branch organically like neural pathways instead of flat feeds.",
+            "read_time": "3 min read",
+            "claps": 64,
+            "x": 3000,
+            "y": 250,
+            "ref_code": "ROOT-001",
+            "cover_image": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80",
+            "content": """# Matrix Dispatch #01: The Dawn of Spatial Knowledge\n\n### Why Flat Feeds Are Broken\nFor over fifteen years, social networks and digital publications have forced human discourse into a single vertical scroll. From algorithmic feeds to comment sections, every complex thought is reduced to a flat, chronologically squashed column.\n\nWhen an author writes a comprehensive essay, fifty distinct sub-arguments occur in the replies. Yet in a flat feed:\n- Brilliant technical counterpoints get buried under memes.\n- Contextual replies lose their semantic tether.\n- Branching debates cannot be visualized.\n\n---\n\n### The Spatial Tree Paradigm\n**BlockTree is the antithesis of the flat timeline.** Here, every article and every reply exists as an autonomous node on an infinite 2D canvas.\n\nWhen you reply to an article, you don't post a comment beneath it—you **spawn a new node connected by a visual circuit branch**.\n\n> "We do not think in single columns. Human knowledge is a dense, multi-dimensional hypergraph of hypotheses, counter-arguments, and synthesis."\n\n---\n\n### How to Engage With This Edition\n1. **Explore the Canvas**: Pan and zoom freely across the tree. Follow the glowing circuit branches to see who replied to whom.\n2. **Read Deep Dives**: Click any card to open this sleek reader drawer with formatted markdown, claps, and parent references.\n3. **Branch the Conversation**: Click **Reply as Node** below to attach your own perspective or counter-argument directly to this article!\n\nLet the discourse begin.\n\n*— The Editorial Core*"""
+        },
+        {
+            "id": 2,
+            "name": "Elena Vance",
+            "author_id": auth_map.get("elena_vance", 2),
+            "parent_id": 1,
+            "title": "Perspective: Why Linear Threads Kill High-Level Discourse",
+            "category": "Perspective",
+            "text": "Linear comment threads collapse nuances into shouting matches. Visual branching restores context and intellectual integrity.",
+            "read_time": "2 min read",
+            "claps": 42,
+            "x": 2350,
+            "y": 720,
+            "ref_code": "PERS-002",
+            "cover_image": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80",
+            "content": """## Linear Comment Feeds Are Cognitively Defective\n\nReading through traditional social media replies feels like listening to twenty people speaking into a single microphone simultaneously.\n\n### The Problem of Context Decay\nWhen a commenter responds to paragraph 4 of an essay, and someone replies to that comment disagreeing about paragraph 2, the entire context breaks down.\n\n### How Spatial Trees Fix This:\n1. **Topological Lineage**: You see the exact ancestor path. If I reply to the *Matrix Dispatch*, my card attaches directly below it.\n2. **Parallel Sub-Debates**: Multiple perspectives can flourish side-by-side without drowning each other out.\n3. **Self-Balancing Structure**: Popular branches expand horizontally and vertically based on engagement rather than algorithmic rage-bait.\n\nSpatial organization gives thoughts the breathing room they deserve."""
+        },
+        {
+            "id": 3,
+            "name": "Dr. Aris Thorne",
+            "author_id": auth_map.get("aris_thorne", 3),
+            "parent_id": 1,
+            "title": "Deep Dive: Graph Databases vs Relational Trees",
+            "category": "Deep Dive",
+            "text": "A technical examination of hierarchical tree storage, adjacency lists, and spatial index querying in decentralized newsrooms.",
+            "read_time": "4 min read",
+            "claps": 51,
+            "x": 2980,
+            "y": 720,
+            "ref_code": "DIVE-003",
+            "cover_image": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop&q=80",
+            "content": """## Engineering the Spatial Publication Backbone\n\nHow do we represent an arbitrary branching network of articles, counterpoints, and rebuttals without crippling database performance?\n\n```python\n# BFS Traversal for Dynamic Branch Layout\ndef get_branch_lineage(node_id):\n    lineage = []\n    curr = node_id\n    while curr:\n        node = db.get_node(curr)\n        lineage.append(node)\n        curr = node.parent_id\n    return list(reversed(lineage))\n```\n\n### Key Architectural Choices:\n- **Adjacency Lists**: Pointers via `parent_id` provide $O(1)$ node insertion time, which is critical for real-time collaborative publishing.\n- **Dynamic Collision Avoidance**: As reply depth increases, sibling repulsion forces prevent nodes from overlapping horizontally.\n- **Hardware-Accelerated Canvas**: CSS matrix transforms guarantee 60fps canvas traversal even with thousands of editorial cards."""
+        },
+        {
+            "id": 4,
+            "name": "Kai Soren",
+            "author_id": auth_map.get("satoshi_ed", 1),
+            "parent_id": 1,
+            "title": "Discussion: The Infinite Canvas as an Editorial Medium",
+            "category": "Discussion",
+            "text": "How spatial navigation stimulates spatial memory, making long-form investigative journalism far more retentive and engaging.",
+            "read_time": "3 min read",
+            "claps": 31,
+            "x": 3610,
+            "y": 720,
+            "ref_code": "DISC-004",
+            "cover_image": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80",
+            "content": """## Spatial Memory in Digital Journalism\n\nPsychological research into the *Method of Loci* shows that humans recall information dramatically better when associated with physical or 2D spatial landmarks.\n\nWhen you read a traditional article on a website:\n- You scroll past text that vanishes off the top edge.\n- You have no spatial mental map of where ideas were situated relative to one another.\n\n### On the BlockTree Canvas:\n- You remember that the **Technical Deep Dive** was on the left branch.\n- You remember that the **Ethical Counterpoint** was located two levels down in the middle.\n- Your brain forms an intuitive geographic memory of the entire debate.\n\nThis is the future of interactive long-form publishing."""
+        },
+        {
+            "id": 5,
+            "name": "Elena Vance",
+            "author_id": auth_map.get("elena_vance", 2),
+            "parent_id": 2,
+            "title": "Deep Dive: Three Rules for High-Signal Branching",
+            "category": "Deep Dive",
+            "text": "Editorial standards to ensure each new reply node adds substantial value, context, or constructive critique to the tree.",
+            "read_time": "2 min read",
+            "claps": 25,
+            "x": 2050,
+            "y": 1200,
+            "ref_code": "DIVE-005",
+            "cover_image": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80",
+            "content": """## Maintaining High Signal in Visual Trees\n\nBecause each reply creates a prominent physical node on the canvas, low-effort replies must be discouraged by community design.\n\n### The Three Tenets:\n1. **Substantiate Your Branch**: Don't just agree or disagree—explain *why*, provide a reference, or introduce an alternative paradigm.\n2. **Anchor to the Exact Node**: If you are rebutting a specific sub-argument, reply directly to that node rather than the root article.\n3. **Keep Excerpts Crisp**: Make your title and card excerpt evocative and clear so passersby can navigate the tree effortlessly."""
+        },
+        {
+            "id": 6,
+            "name": "Marcus Chen",
+            "author_id": auth_map.get("marcus_chen", 4),
+            "parent_id": 2,
+            "title": "Counterpoint: Can Spatial Trees Prevent Visual Sprawl?",
+            "category": "Counterpoint",
+            "text": "Trees are magnificent for focused essays with 10-50 replies, but what happens when a topic blows up to 5,000 nodes?",
+            "read_time": "3 min read",
+            "claps": 48,
+            "x": 2650,
+            "y": 1200,
+            "ref_code": "CP-006",
+            "cover_image": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
+            "content": """## A Challenge to the Infinite Tree Thesis\n\n*In direct reply to Elena Vance's thesis on linear vs spatial feeds.*\n\nWhile I completely agree that linear comment sections are broken, spatial trees introduce a different engineering challenge: **Visual Sprawl**.\n\n### The Complexity Scaling Problem\nWhen 5,000 people reply to an explosive news story:\n- Sibling nodes could stretch across 100,000 horizontal pixels.\n- The user feels overwhelmed trying to find the highest-quality branches.\n\n### Potential Solutions:\n1. **Dual Views**: Allow readers to switch to an Editorial Stream / Feed View.\n2. **Category Discovery Filters**: Isolate perspectives and counterpoints.\n3. **Semantic LOD (Level-of-Detail)**: When zoomed out, spotlight verified branches.\n\nWhat does the community think?"""
+        },
+        {
+            "id": 7,
+            "name": "Dr. Aris Thorne",
+            "author_id": auth_map.get("aris_thorne", 3),
+            "parent_id": 3,
+            "title": "Perspective: Micro-Daemons & Zero-Copy Topology",
+            "category": "Perspective",
+            "text": "Exploring event-driven pub/sub daemons for sub-millisecond propagation of tree updates across global matrix subscribers.",
+            "read_time": "3 min read",
+            "claps": 39,
+            "x": 3300,
+            "y": 1200,
+            "ref_code": "PERS-007",
+            "cover_image": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
+            "content": """## Sub-Millisecond Matrix Propagation\n\nWhen a new branch is attached, all active viewers should see the bezier curve sprout in real time with hardware-accelerated fluid motion.\n\n### Key Pipeline:\n- WebSocket / SSE broadcast ring\n- Differential tree delta payload (< 1KB)\n- Local canvas client-side spline interpolation"""
+        }
+    ]
+
+    for n in demo_nodes:
+        c.execute("""
+            INSERT OR REPLACE INTO nodes (id, name, title, category, text, content, read_time, claps, x, y, parent_id, author_id, ref_code, cover_image, is_verified_author, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+        """, (n['id'], n['name'], n['title'], n['category'], n['text'], n['content'], n['read_time'], n['claps'], n['x'], n['y'], n['parent_id'], n['author_id'], n['ref_code'], n['cover_image']))
+
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success", "message": "Demo knowledge matrix seeded successfully with 7 connected branches!"})
+
+@app.route('/api/reset-blank', methods=['POST'])
+def reset_blank_matrix():
+    """Reset the nodes database back to 0 (pristine production state)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM nodes")
+    c.execute("DELETE FROM sqlite_sequence WHERE name='nodes'")
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success", "message": "Database reset to pristine blank state."})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=9999, debug=True)

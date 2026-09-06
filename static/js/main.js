@@ -221,6 +221,9 @@ let activeReaderNodeId = null;
 let activeReaderNode = null; // Full active article cache
 let currentAuthor = null; // Verified author state
 let lastFocusedNodeId = null; // Track last clicked / focused post for camera recenter
+var currentViewMode = 'matrix'; // 'matrix' | 'stream'
+var activeCategoryFilter = 'all';
+var readerFontSize = 16;
 
 // Global Reply Action: Always cleanly opens composer connected to the target article
 window.replyToNode = function(nodeId) {
@@ -567,6 +570,8 @@ async function loadMatrix(autoCenter = false) {
             nodesContainer.appendChild(card);
         });
 
+        // 5. Render Stream Feed
+        renderStreamFeed();
         // 6. Render Curved Bezier Branch Lines using measured DOM heights & solid fallback strokes
         const branchColors = {
             'newsletter': '#00f3ff',
@@ -2322,7 +2327,13 @@ window.addEventListener('keydown', (e) => {
     if (loginModal && !loginModal.classList.contains('d-none')) return;
 
     const panStep = e.shiftKey ? 260 : 130;
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+    if (e.key === 'v' || e.key === 'V' || e.key === 'm' || e.key === 'M') {
+        setViewMode(currentViewMode === 'matrix' ? 'stream' : 'matrix');
+    } else if (e.key === 'f' || e.key === 'F') {
+        fitAllNodes();
+    } else if (e.key === '?') {
+        openGuideModal();
+    } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
         panzoom.pan(0, panStep, { relative: true, animate: true });
     } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
         panzoom.pan(0, -panStep, { relative: true, animate: true });
@@ -2369,6 +2380,7 @@ document.addEventListener('keydown', (e) => {
         closeComposer();
         closeRegisterModal();
         closeLoginModal();
+        closeGuideModal();
         readerDrawer.classList.add('d-none');
         authorDrawer.classList.add('d-none');
         if (leaderboardDeck) leaderboardDeck.classList.remove('mobile-open');
@@ -2376,6 +2388,305 @@ document.addEventListener('keydown', (e) => {
         activeReaderNodeId = null;
     }
 });
+
+// ==========================================================================
+// BLOCKTREE 4.0: DUAL VIEW, CATEGORY FILTERS, STREAM FEED & USABILITY
+// ==========================================================================
+
+function setViewMode(mode) {
+    playSound('click');
+    currentViewMode = mode;
+    const canvasContainer = document.getElementById('canvas-container');
+    const streamFeedView = document.getElementById('stream-feed-view');
+    const btnMatrix = document.getElementById('btn-view-matrix');
+    const btnStream = document.getElementById('btn-view-stream');
+    const navDeck = document.getElementById('spatial-nav-deck');
+    const addBtn = document.getElementById('add-btn');
+
+    if (mode === 'stream') {
+        if (canvasContainer) canvasContainer.classList.add('d-none');
+        if (streamFeedView) streamFeedView.classList.remove('d-none');
+        if (btnMatrix) btnMatrix.classList.remove('active');
+        if (btnStream) btnStream.classList.add('active');
+        if (navDeck) navDeck.classList.add('d-none');
+        renderStreamFeed();
+    } else {
+        if (streamFeedView) streamFeedView.classList.add('d-none');
+        if (canvasContainer) canvasContainer.classList.remove('d-none');
+        if (btnMatrix) btnMatrix.classList.add('active');
+        if (btnStream) btnStream.classList.remove('active');
+        if (navDeck) navDeck.classList.remove('d-none');
+    }
+}
+
+function setCategoryFilter(category) {
+    playSound('click');
+    activeCategoryFilter = (category || 'all').toLowerCase().trim();
+    
+    document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+        const btnCat = (btn.dataset.cat || '').toLowerCase().trim();
+        btn.classList.toggle('active', btnCat === activeCategoryFilter);
+    });
+
+    if (currentViewMode === 'matrix') {
+        const cards = document.querySelectorAll('.editorial-card');
+        const paths = document.querySelectorAll('#svg-canvas path');
+        
+        if (activeCategoryFilter === 'all') {
+            cards.forEach(card => card.classList.remove('cat-filtered-dim', 'cat-filtered-active'));
+            paths.forEach(p => p.classList.remove('branch-dimmed'));
+        } else {
+            cards.forEach(card => {
+                const nodeId = parseInt(card.dataset.id);
+                const node = nodeMap[nodeId];
+                const nodeCat = (node && node.category ? node.category : '').toLowerCase();
+                
+                if (nodeCat.includes(activeCategoryFilter)) {
+                    card.classList.add('cat-filtered-active');
+                    card.classList.remove('cat-filtered-dim');
+                } else {
+                    card.classList.add('cat-filtered-dim');
+                    card.classList.remove('cat-filtered-active');
+                }
+            });
+
+            paths.forEach(p => {
+                const fromId = parseInt(p.dataset.from);
+                const toId = parseInt(p.dataset.to);
+                const fromNode = nodeMap[fromId];
+                const toNode = nodeMap[toId];
+                const matchFrom = fromNode && (fromNode.category || '').toLowerCase().includes(activeCategoryFilter);
+                const matchTo = toNode && (toNode.category || '').toLowerCase().includes(activeCategoryFilter);
+                if (matchFrom || matchTo) {
+                    p.classList.remove('branch-dimmed');
+                } else {
+                    p.classList.add('branch-dimmed');
+                }
+            });
+        }
+    } else {
+        renderStreamFeed();
+    }
+}
+
+function renderStreamFeed() {
+    const listElem = document.getElementById('stream-cards-list');
+    if (!listElem) return;
+
+    let nodes = [...currentNodes];
+    
+    if (activeCategoryFilter !== 'all') {
+        nodes = nodes.filter(n => (n.category || '').toLowerCase().includes(activeCategoryFilter));
+    }
+
+    const sortSelect = document.getElementById('stream-sort-select');
+    const sortBy = sortSelect ? sortSelect.value : 'latest';
+    if (sortBy === 'claps') {
+        nodes.sort((a, b) => (b.claps || 0) - (a.claps || 0));
+    } else if (sortBy === 'replies') {
+        nodes.sort((a, b) => (b.reply_count || 0) - (a.reply_count || 0));
+    } else {
+        nodes.sort((a, b) => b.id - a.id);
+    }
+
+    if (nodes.length === 0) {
+        listElem.innerHTML = `
+            <div class="hud-glass p-4 text-center" style="border-radius: 12px; margin-top: 20px;">
+                <i class="bi bi-journal-x text-cyan" style="font-size: 32px; display: block; margin-bottom: 10px;"></i>
+                <h3 style="color: #fff; font-size: 16px;">No articles found in this filter</h3>
+                <p class="dim-text text-xs" style="margin-bottom: 16px;">Try selecting "All Topics" or seed the demo matrix to explore rich branches.</p>
+                <button type="button" class="btn-primary btn-gold btn-sm" onclick="setCategoryFilter('all')">Show All Articles</button>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    nodes.forEach(n => {
+        const catClass = getCategoryClass(n.category);
+        const verifiedHtml = n.is_verified_author ? `<i class="bi bi-patch-check-fill text-cyan" title="Verified Author" style="font-size: 11px;"></i>` : '';
+        const parent = nodeMap[n.parent_id];
+        
+        let lineageHtml = '';
+        if (parent) {
+            lineageHtml = `
+                <div class="dim-text text-xs d-flex align-center gap-1" style="font-family: var(--font-mono); margin-top: 4px;">
+                    <i class="bi bi-reply-fill text-cyan"></i>
+                    <span>In reply to <strong>${escapeHtml(parent.title)}</strong> by @${escapeHtml(parent.name)}</span>
+                </div>
+            `;
+        }
+
+        let seriesHtml = '';
+        if (n.series_title) {
+            seriesHtml = `
+                <span class="card-series-tag">
+                    <i class="bi bi-collection-fill text-gold"></i>
+                    <span>Series: <strong>${escapeHtml(n.series_title)}</strong> (Part ${n.series_part || 1})</span>
+                </span>
+            `;
+        }
+
+        html += `
+            <article class="stream-card" data-id="${n.id}" onclick="openReader(${n.id})">
+                <div class="stream-card-top">
+                    <div class="stream-card-meta-left">
+                        <span class="badge-cat ${catClass}">${escapeHtml(n.category)}</span>
+                        <span class="dim-text text-xs" style="font-family: var(--font-mono);"><i class="bi bi-clock"></i> ${escapeHtml(n.read_time || '3 min read')}</span>
+                        ${seriesHtml}
+                    </div>
+                    <div class="dim-text text-xs" style="font-family: var(--font-mono);">
+                        <i class="bi bi-heart-fill text-magenta"></i> <strong>${n.claps || 0}</strong> claps
+                        ${n.reply_count ? ` • <i class="bi bi-diagram-3-fill text-cyan"></i> <strong>${n.reply_count}</strong> branches` : ''}
+                    </div>
+                </div>
+
+                <h3 class="stream-card-title">${escapeHtml(n.title)}</h3>
+                <p class="stream-card-excerpt">${escapeHtml(n.text || '')}</p>
+                ${lineageHtml}
+
+                <div class="stream-card-bottom" onclick="event.stopPropagation();">
+                    <div class="stream-author-block" onclick="openAuthorDrawer(${n.author_id || 1});" style="cursor: pointer;">
+                        <img src="${n.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.name}" class="stream-avatar" alt="">
+                        <span class="stream-author-name">${escapeHtml(n.name)} ${verifiedHtml}</span>
+                    </div>
+
+                    <div class="stream-actions-group">
+                        <button type="button" class="btn-stream-matrix-jump" onclick="jumpToMatrixNode(${n.id})" title="View on 2D infinite matrix canvas">
+                            <i class="bi bi-grid-3x3"></i> <span>View in Matrix</span>
+                        </button>
+                        <button type="button" class="btn-stream-read" onclick="openReader(${n.id})" title="Read full essay">
+                            <span>Read Story</span> <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+        `;
+    });
+
+    listElem.innerHTML = html;
+}
+
+function jumpToMatrixNode(nodeId) {
+    setViewMode('matrix');
+    setTimeout(() => {
+        focusNode(nodeId, 0.95);
+    }, 150);
+}
+
+function fitAllNodes() {
+    playSound('click');
+    if (!currentNodes || currentNodes.length === 0) {
+        resetView();
+        showToast('ℹ️ Matrix is blank. Center view reset.');
+        return;
+    }
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    currentNodes.forEach(n => {
+        minX = Math.min(minX, n.x);
+        maxX = Math.max(maxX, n.x + 300);
+        minY = Math.min(minY, n.y);
+        maxY = Math.max(maxY, n.y + 220);
+    });
+
+    const boxW = Math.max(800, (maxX - minX) + 320);
+    const boxH = Math.max(600, (maxY - minY) + 320);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    const container = document.getElementById('canvas-container');
+    const viewW = container ? (container.clientWidth || window.innerWidth) : window.innerWidth;
+    const viewH = container ? (container.clientHeight || window.innerHeight) : window.innerHeight;
+
+    const scale = Math.max(0.22, Math.min(1.05, Math.min(viewW / boxW, viewH / boxH)));
+    panToCoordinate(centerX, centerY, scale);
+    showToast('🔭 Matrix framed: All branches in view');
+}
+
+function openGuideModal() {
+    playSound('click');
+    const modal = document.getElementById('guide-modal');
+    if (modal) modal.classList.remove('d-none');
+}
+
+function closeGuideModal() {
+    const modal = document.getElementById('guide-modal');
+    if (modal) modal.classList.add('d-none');
+}
+
+async function triggerSeedDemo() {
+    playSound('click');
+    const btn = document.getElementById('btn-guide-seed-demo');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Seeding Matrix...';
+    }
+    try {
+        const res = await fetch('/api/seed-demo', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeGuideModal();
+            showToast('🌱 Knowledge Matrix seeded with 7 connected branches!');
+            await loadMatrix(true);
+            fitAllNodes();
+        } else {
+            showToast('⚠️ Seeding failed: ' + (data.message || 'Unknown error'));
+        }
+    } catch (err) {
+        showToast('⚠️ Network error seeding demo matrix');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill"></i> Seed Sample Matrix';
+        }
+    }
+}
+
+async function triggerResetBlank() {
+    if (!confirm('Are you sure you want to reset the knowledge matrix back to 0 nodes? This cleans the canvas for production.')) {
+        return;
+    }
+    playSound('click');
+    try {
+        const res = await fetch('/api/reset-blank', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeGuideModal();
+            showToast('🧹 Matrix reset to pristine blank state.');
+            await loadMatrix(true);
+            resetView();
+        } else {
+            showToast('⚠️ Reset failed: ' + (data.message || 'Unknown error'));
+        }
+    } catch (err) {
+        showToast('⚠️ Network error resetting matrix');
+    }
+}
+
+function adjustReaderFontSize(delta) {
+    if (delta === 0) readerFontSize = 16;
+    else readerFontSize = Math.max(13, Math.min(24, readerFontSize + delta));
+    const content = document.getElementById('reader-content-body');
+    if (content) {
+        content.style.fontSize = `${readerFontSize}px`;
+        content.style.lineHeight = `${readerFontSize * 1.65}px`;
+    }
+    showToast(`🔤 Font size: ${readerFontSize}px`);
+}
+
+function initReaderScrollProgress() {
+    const drawer = document.getElementById('article-reader-drawer');
+    const scrollable = drawer ? drawer.querySelector('.reader-scrollable') : null;
+    const progress = document.getElementById('reader-reading-progress');
+    if (scrollable && progress) {
+        scrollable.addEventListener('scroll', () => {
+            const maxScroll = scrollable.scrollHeight - scrollable.clientHeight;
+            const pct = maxScroll > 0 ? Math.min(100, Math.max(0, Math.round((scrollable.scrollTop / maxScroll) * 100))) : 0;
+            progress.style.width = `${pct}%`;
+        });
+    }
+}
 
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -2386,6 +2697,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkDeepLink();
     optimizeMobileLayout();
     checkAdminUrlTrigger();
+    // 4.0 UI/UX Bindings
+    const btnViewMatrix = document.getElementById('btn-view-matrix');
+    const btnViewStream = document.getElementById('btn-view-stream');
+    if (btnViewMatrix) btnViewMatrix.addEventListener('click', () => setViewMode('matrix'));
+    if (btnViewStream) btnViewStream.addEventListener('click', () => setViewMode('stream'));
+
+    const btnOpenGuide = document.getElementById('btn-open-guide');
+    const btnCloseGuide = document.getElementById('btn-close-guide');
+    if (btnOpenGuide) btnOpenGuide.addEventListener('click', openGuideModal);
+    if (btnCloseGuide) btnCloseGuide.addEventListener('click', closeGuideModal);
+
+    const ctrlFitAll = document.getElementById('ctrl-fit-all');
+    if (ctrlFitAll) ctrlFitAll.addEventListener('click', fitAllNodes);
+
+    const btnSeedDemo = document.getElementById('btn-guide-seed-demo');
+    const btnResetBlank = document.getElementById('btn-guide-reset-blank');
+    if (btnSeedDemo) btnSeedDemo.addEventListener('click', triggerSeedDemo);
+    if (btnResetBlank) btnResetBlank.addEventListener('click', triggerResetBlank);
+
+    const streamSortSelect = document.getElementById('stream-sort-select');
+    if (streamSortSelect) streamSortSelect.addEventListener('change', renderStreamFeed);
+
+    const btnFontSmaller = document.getElementById('btn-font-smaller');
+    const btnFontReset = document.getElementById('btn-font-reset');
+    const btnFontLarger = document.getElementById('btn-font-larger');
+    if (btnFontSmaller) btnFontSmaller.addEventListener('click', () => adjustReaderFontSize(-1.5));
+    if (btnFontReset) btnFontReset.addEventListener('click', () => adjustReaderFontSize(0));
+    if (btnFontLarger) btnFontLarger.addEventListener('click', () => adjustReaderFontSize(1.5));
+
+    document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => setCategoryFilter(btn.dataset.cat));
+    });
+
+    initReaderScrollProgress();
+
     setInterval(() => { loadMatrix(false); }, 25000);
 });
 
@@ -3421,3 +3767,5 @@ if (adm2faDisableConfirmBtn) {
         }
     });
 }
+
+

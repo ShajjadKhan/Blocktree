@@ -18,9 +18,21 @@
             <div class="brand-badge" onclick="resetView()" style="cursor: pointer;" title="BlockTree Editorial Home">
                 <i class="bi bi-newspaper brand-icon"></i>
                 <div class="brand-text">
-                    <span class="brand-title">BLOCKTREE<span class="brand-dot">.</span>EDITORIAL</span>
+                    <span class="brand-title">BLOCKTREE<span class="brand-dot">.</span><span class="brand-word-ed">EDITORIAL</span></span>
                     <span class="brand-sub">Spatial Newsletter & Branching Discourse</span>
                 </div>
+            </div>
+
+            <!-- View Mode Switcher (2D Spatial Matrix vs Editorial Stream) -->
+            <div class="view-mode-toggle" id="view-mode-toggle" role="group" aria-label="View Mode Switcher">
+                <button type="button" class="view-toggle-btn active" id="btn-view-matrix" title="2D Spatial Matrix Canvas (Key: M)">
+                    <i class="bi bi-grid-3x3"></i>
+                    <span>Matrix</span>
+                </button>
+                <button type="button" class="view-toggle-btn" id="btn-view-stream" title="Linear Editorial Stream Feed (Key: V)">
+                    <i class="bi bi-view-list"></i>
+                    <span>Stream</span>
+                </button>
             </div>
 
             <!-- Telemetry Status Pills -->
@@ -102,6 +114,11 @@
                 </div>
             </div>
 
+            <!-- Platform Guide & Shortcuts -->
+            <button type="button" id="btn-open-guide" class="nav-btn-subtle" title="Guide & Keyboard Shortcuts (?)">
+                <i class="bi bi-question-circle"></i> <span class="nav-btn-text">GUIDE</span>
+            </button>
+
             <!-- Audio Synthesizer Toggle -->
             <button id="sound-toggle-btn" class="nav-icon-btn" title="Toggle Sound Feedback">
                 <i class="bi bi-volume-up-fill" id="sound-icon"></i>
@@ -114,6 +131,28 @@
             </button>
         </div>
     </header>
+    <!-- Floating Category Filter HUD -->
+    <nav id="category-filter-bar" class="hud-glass category-filter-hud" aria-label="Filter Matrix by Category">
+        <button type="button" class="cat-filter-btn active" data-cat="all">
+            <i class="bi bi-stars"></i> <span>All Topics</span>
+        </button>
+        <button type="button" class="cat-filter-btn" data-cat="Newsletter">
+            <span class="cat-dot dot-newsletter"></span> <span>Newsletters</span>
+        </button>
+        <button type="button" class="cat-filter-btn" data-cat="Perspective">
+            <span class="cat-dot dot-perspective"></span> <span>Perspectives</span>
+        </button>
+        <button type="button" class="cat-filter-btn" data-cat="Counterpoint">
+            <span class="cat-dot dot-counterpoint"></span> <span>Counterpoints</span>
+        </button>
+        <button type="button" class="cat-filter-btn" data-cat="Deep Dive">
+            <span class="cat-dot dot-deepdive"></span> <span>Deep Dives</span>
+        </button>
+        <button type="button" class="cat-filter-btn" data-cat="Discussion">
+            <span class="cat-dot dot-discussion"></span> <span>Discussions</span>
+        </button>
+    </nav>
+
 
     <!-- Permanent Live Trending, Series & Writers Scoreboard (Top Right / Mobile Bottom Sheet) -->
     <div id="leaderboard" class="hud-glass permanent-scoreboard">
@@ -194,6 +233,9 @@
             <button type="button" id="ctrl-reset" class="deck-btn deck-btn-recenter" title="Recenter Camera on Matrix">
                 <i class="bi bi-crosshair"></i>
             </button>
+            <button type="button" id="ctrl-fit-all" class="deck-btn" title="Fit All Nodes in View (F)">
+                <i class="bi bi-aspect-ratio"></i>
+            </button>
             <button type="button" id="joy-toggle-btn" class="deck-btn joy-toggle-btn" title="Toggle 360° Joystick">
                 <i class="bi bi-joystick"></i>
             </button>
@@ -208,10 +250,16 @@
 
     <!-- Slide-over Cyber-Editorial Reader Drawer -->
     <div id="article-reader-drawer" class="reader-drawer hud-glass d-none">
+        <div id="reader-reading-progress" class="reader-reading-progress" style="width: 0%;"></div>
         <div class="reader-top-bar">
             <div class="reader-top-left">
                 <span id="reader-category-pill" class="badge-cat cat-newsletter">NEWSLETTER</span>
                 <span id="reader-read-time" class="reader-read-time"><i class="bi bi-clock"></i> 3 min read</span>
+                <div class="reader-font-controls" title="Adjust Reading Text Size">
+                    <button type="button" id="btn-font-smaller" class="font-ctrl-btn" title="Smaller font">A-</button>
+                    <button type="button" id="btn-font-reset" class="font-ctrl-btn" title="Reset font size">A</button>
+                    <button type="button" id="btn-font-larger" class="font-ctrl-btn" title="Larger font">A+</button>
+                </div>
             </div>
             <div class="reader-top-actions">
                 <button id="reader-pan-btn" class="reader-icon-btn" title="Center camera on this node in matrix">
@@ -748,6 +796,33 @@
             </svg>
         </div>
     </div>
+    <!-- Editorial Stream / Feed View (Linear Companion to 2D Spatial Canvas) -->
+    <main id="stream-feed-view" class="stream-feed-container d-none" aria-label="Editorial Stream Feed">
+        <div class="stream-feed-inner">
+            <div class="stream-feed-banner hud-glass">
+                <div class="stream-banner-text">
+                    <div class="stream-tag"><i class="bi bi-view-list text-cyan"></i> EDITORIAL STREAM DISPATCHES</div>
+                    <h1 class="stream-headline">Spatial Dispatches in Linear Focus</h1>
+                    <p class="stream-sub">Browse, search, and deep-read all articles chronologically or by reader resonance. Jump directly into any node's spatial branch anytime.</p>
+                </div>
+                <div class="stream-controls-wrap">
+                    <div class="stream-sort-box">
+                        <label for="stream-sort-select"><i class="bi bi-sort-down text-cyan"></i> Sort by:</label>
+                        <select id="stream-sort-select" class="stream-select">
+                            <option value="latest">Latest Dispatches</option>
+                            <option value="claps">Most Clapped</option>
+                            <option value="replies">Most Branched</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="stream-cards-list" class="stream-cards-grid">
+                <!-- Dynamically populated via renderStreamFeed() -->
+            </div>
+        </div>
+    </main>
+
 
     <!-- ==========================================================================
          ADMIN MODERATION & CONTENT CONTROL CENTER
@@ -1182,6 +1257,70 @@
                     <button type="button" id="adm-2fa-disable-cancel-btn" class="btn-secondary">CANCEL</button>
                     <button type="button" id="adm-2fa-disable-confirm-btn" class="btn-primary" style="background: var(--magenta); border-color: var(--magenta);">
                         <i class="bi bi-shield-slash"></i> CONFIRM DISABLE 2FA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Platform Guide & Keyboard Shortcuts Modal -->
+    <div id="guide-modal" class="cyber-modal hud-glass d-none" style="width: 720px; max-width: 95vw;">
+        <div class="modal-header">
+            <div class="d-flex align-center gap-2">
+                <i class="bi bi-compass-fill text-cyan" style="font-size: 20px;"></i>
+                <div>
+                    <h2 style="font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 0.5px;">BlockTree Platform Guide</h2>
+                    <div class="dim-text text-xs">Spatial Knowledge Matrix, Branching Discourse & Dual-Mode Reading</div>
+                </div>
+            </div>
+            <button type="button" id="btn-close-guide" class="modal-x">&times;</button>
+        </div>
+        <div class="modal-body p-3" style="max-height: 80vh; overflow-y: auto;">
+            <!-- 3 Core Tenets -->
+            <div class="guide-grid mb-3">
+                <div class="guide-card">
+                    <div class="guide-card-icon icon-cyan"><i class="bi bi-arrows-move"></i></div>
+                    <h4>1. 2D Infinite Canvas</h4>
+                    <p>Pan freely by dragging or with the 360° flight joystick. Pinch or use precision zoom to scale from macro topology to reading depth.</p>
+                </div>
+                <div class="guide-card">
+                    <div class="guide-card-icon icon-magenta"><i class="bi bi-diagram-3-fill"></i></div>
+                    <h4>2. Branching Discourse</h4>
+                    <p>Thoughts never get buried in flat comment feeds. Every perspective or counterpoint spawns a connected visual circuit branch.</p>
+                </div>
+                <div class="guide-card">
+                    <div class="guide-card-icon icon-gold"><i class="bi bi-view-list"></i></div>
+                    <h4>3. Dual View Modality</h4>
+                    <p>Switch seamlessly between the <strong>Spatial Matrix</strong> and linear <strong>Editorial Stream</strong> using the header toggle or key <code>V</code>.</p>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Grid -->
+            <div class="shortcuts-card mb-3">
+                <div class="shortcuts-header"><i class="bi bi-keyboard text-cyan"></i> <strong>Keyboard Shortcuts</strong></div>
+                <div class="shortcuts-grid">
+                    <div class="shortcut-item"><kbd>V</kbd> or <kbd>M</kbd> <span>Toggle Matrix Canvas / Stream Feed</span></div>
+                    <div class="shortcut-item"><kbd>F</kbd> <span>Fit all matrix branches into view</span></div>
+                    <div class="shortcut-item"><kbd>0</kbd> <span>Recenter to origin dispatch</span></div>
+                    <div class="shortcut-item"><kbd>+</kbd> / <kbd>-</kbd> <span>Zoom in / Zoom out</span></div>
+                    <div class="shortcut-item"><kbd>Esc</kbd> <span>Close reader drawer or modals</span></div>
+                    <div class="shortcut-item"><kbd>?</kbd> <span>Open this Guide modal</span></div>
+                </div>
+            </div>
+
+            <!-- Matrix Management & Seed Actions -->
+            <div class="guide-demo-box">
+                <div class="demo-box-left">
+                    <div class="demo-box-title"><i class="bi bi-lightning-charge-fill text-gold"></i> Explore With Rich Sample Matrix</div>
+                    <div class="dim-text text-xs">Populate the matrix with 7 curated editorial dispatches, perspectives, and counterpoints with verified authors.</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="btn-guide-seed-demo" class="btn-primary btn-gold btn-sm">
+                        <i class="bi bi-cloud-arrow-down-fill"></i> Seed Sample Matrix
+                    </button>
+                    <button type="button" id="btn-guide-reset-blank" class="btn-secondary btn-sm" title="Clear all nodes back to pristine blank state">
+                        <i class="bi bi-trash3"></i> Reset Blank
                     </button>
                 </div>
             </div>
