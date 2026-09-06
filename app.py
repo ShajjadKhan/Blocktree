@@ -101,14 +101,14 @@ init_db()
 CARD_WIDTH = 270
 CARD_HEIGHT = 200
 MIN_DIST_X = 350  # 270px card + 80px clean visual clearance
-MIN_DIST_Y = 270  # card height + gap
+MIN_DIST_Y = 340  # card height + generous gap
 SPACING = 360     # slot spacing between sibling replies
 
 def calculate_node_coordinates(c, parent_id, exclude_node_id=None):
     """
     Calculates collision-free coordinates for spatial branching.
     - If parent_id is None: Placed along top row (y = 150) spaced generously.
-    - If parent_id is set: Placed on child row (parent.y + 300) centered beneath parent,
+    - If parent_id is set: Placed on child row (parent.y + 420) centered beneath parent,
       fanning outward symmetrically with full 2D collision avoidance.
     """
     if not parent_id:
@@ -122,10 +122,10 @@ def calculate_node_coordinates(c, parent_id, exclude_node_id=None):
     c.execute("SELECT x, y FROM nodes WHERE id = ?", (parent_id,))
     parent_row = c.fetchone()
     if not parent_row:
-        return 3000, 450
+        return 3000, 570
         
     px, py = parent_row[0], parent_row[1]
-    ny = py + 300
+    ny = py + 420
 
     # Fetch all nodes in the database for 2D AABB collision detection
     c.execute("SELECT id, x, y, parent_id FROM nodes")

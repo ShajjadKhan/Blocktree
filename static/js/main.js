@@ -366,7 +366,7 @@ async function loadMatrix(autoCenter = false) {
         
         // 5. Render Canvas Cards & Connecting Lines
         const svgCanvas = document.getElementById('svg-canvas');
-        const existingPaths = svgCanvas.querySelectorAll('.tree-branch-line');
+        const existingPaths = svgCanvas.querySelectorAll('.tree-branch-line, .tree-branch-dot');
         existingPaths.forEach(p => p.remove());
         
         let nodesContainer = document.getElementById('nodes');
@@ -483,7 +483,10 @@ async function loadMatrix(autoCenter = false) {
             if (!parent) return;
 
             const parentElem = document.querySelector(`.editorial-card[data-id="${parent.id}"]`);
-            const parentH = parentElem ? parentElem.offsetHeight : 230;
+            let parentH = 220;
+            if (parentElem && parentElem.offsetHeight > 60) {
+                parentH = parentElem.offsetHeight;
+            }
             
             const fromX = parent.x + 135;
             const fromY = parent.y + parentH;
@@ -492,8 +495,14 @@ async function loadMatrix(autoCenter = false) {
 
             let pathD = '';
             if (toY >= fromY) {
-                const midY = (fromY + toY) / 2;
-                pathD = `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+                if (Math.abs(toX - fromX) < 2) {
+                    // Ultra-crisp vertical branch connection
+                    pathD = `M ${fromX} ${fromY} L ${toX} ${toY}`;
+                } else {
+                    // Smooth S-curve branch connection
+                    const midY = (fromY + toY) / 2;
+                    pathD = `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+                }
             } else {
                 const curveOffset = Math.abs(toX - fromX) * 0.4 + 50;
                 pathD = `M ${fromX} ${fromY} C ${fromX} ${fromY + curveOffset}, ${toX} ${toY - curveOffset}, ${toX} ${toY}`;
@@ -511,14 +520,23 @@ async function loadMatrix(autoCenter = false) {
             
             svgCanvas.appendChild(path);
 
-            // Glowing anchor dot at top of child card
-            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            dot.setAttribute("cx", toX);
-            dot.setAttribute("cy", toY);
-            dot.setAttribute("r", "3.5");
-            dot.setAttribute("fill", strokeColor);
-            dot.setAttribute("class", "tree-branch-dot");
-            svgCanvas.appendChild(dot);
+            // Glowing anchor dot at parent exit
+            const dotFrom = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dotFrom.setAttribute("cx", fromX);
+            dotFrom.setAttribute("cy", fromY);
+            dotFrom.setAttribute("r", "4");
+            dotFrom.setAttribute("fill", strokeColor);
+            dotFrom.setAttribute("class", "tree-branch-dot");
+            svgCanvas.appendChild(dotFrom);
+
+            // Glowing anchor dot at child card input
+            const dotTo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dotTo.setAttribute("cx", toX);
+            dotTo.setAttribute("cy", toY);
+            dotTo.setAttribute("r", "4");
+            dotTo.setAttribute("fill", strokeColor);
+            dotTo.setAttribute("class", "tree-branch-dot");
+            svgCanvas.appendChild(dotTo);
         });
         
         // Auto-center on initial load

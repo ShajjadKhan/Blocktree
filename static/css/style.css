@@ -581,31 +581,33 @@ body.editorial-body {
     position: absolute;
     top: 0;
     left: 0;
+    width: 12000px !important;
+    height: 12000px !important;
     pointer-events: none;
     z-index: 5;
+    overflow: visible !important;
 }
 
 .tree-branch-line {
-    fill: none;
+    fill: none !important;
     stroke: #00f3ff;
-    stroke-width: 2.5px;
-    stroke-linecap: round;
-    opacity: 0.90;
-    filter: drop-shadow(0 0 4px rgba(0, 243, 255, 0.45));
-    transition: stroke-width 0.2s ease, opacity 0.2s ease, stroke 0.2s ease;
+    stroke-width: 3.5px !important;
+    stroke-linecap: round !important;
+    stroke-linejoin: round !important;
+    opacity: 0.95 !important;
+    transition: stroke-width 0.2s ease, opacity 0.2s ease;
 }
 
 .tree-branch-dot {
-    opacity: 0.95;
-    filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.6));
+    opacity: 0.98 !important;
     pointer-events: none;
 }
 
-.branch-newsletter { stroke: #00f3ff; stroke: url(#newsletter-glow); }
-.branch-perspective { stroke: #10b981; stroke: url(#perspective-glow); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.45)); }
-.branch-counterpoint { stroke: #f43f5e; stroke: url(#counterpoint-glow); filter: drop-shadow(0 0 4px rgba(244, 63, 94, 0.45)); }
-.branch-deep-dive { stroke: #a855f7; stroke: url(#deepdive-glow); filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.45)); }
-.branch-discussion { stroke: #f59e0b; stroke: url(#discussion-glow); filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.45)); }
+.branch-newsletter { stroke: #00f3ff !important; }
+.branch-perspective { stroke: #10b981 !important; }
+.branch-counterpoint { stroke: #f43f5e !important; }
+.branch-deep-dive { stroke: #a855f7 !important; }
+.branch-discussion { stroke: #f59e0b !important; }
 
 /* ==========================================================================
    Editorial Canvas Card (The Visual Node)
