@@ -1819,7 +1819,7 @@ body.editorial-body {
 }
 
 /* FULLSCREEN WORD STUDIO MODE */
-.cyber-modal.fullscreen-studio {
+.cyber-modal.fullscreen-studio:not(.d-none) {
     position: fixed;
     top: 0 !important;
     left: 0 !important;
@@ -2906,8 +2906,8 @@ textarea#form-content {
 
     
     /* Fullscreen Modals on Mobile & Expansive Writing Viewport */
-    .cyber-modal,
-    .cyber-modal.composer-modern {
+    .cyber-modal:not(.d-none),
+    .cyber-modal.composer-modern:not(.d-none) {
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
@@ -2943,12 +2943,16 @@ textarea#form-content {
     }
 
     .composer-meta-strip {
+    position: relative;
+    z-index: 30;
         gap: 4px !important;
         padding: 2px 0 4px !important;
         margin-bottom: 4px !important;
     }
 
     .meta-pill {
+    position: relative;
+    z-index: 31;
         height: 26px !important;
         padding: 2px 6px !important;
         font-size: 10px !important;
@@ -3769,7 +3773,7 @@ input, textarea {
 /* ==========================================================================
    COMPACT MODERN COMPOSER & MOBILE EXPANSIVE WRITING STUDIO
    ========================================================================== */
-.cyber-modal.composer-modern {
+.cyber-modal.composer-modern:not(.d-none) {
     width: 780px;
     max-width: 95vw;
     height: 86vh;
@@ -3910,6 +3914,8 @@ input, textarea {
 
 /* Horizontal Meta Pill Strip */
 .composer-meta-strip {
+    position: relative;
+    z-index: 30;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -3930,6 +3936,8 @@ input, textarea {
 }
 
 .meta-pill {
+    position: relative;
+    z-index: 31;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -4057,6 +4065,8 @@ input, textarea {
 }
 
 .file-drop-area-compact {
+    position: relative !important;
+    overflow: hidden !important;
     border: 1px dashed rgba(0, 243, 255, 0.35);
     border-radius: 6px;
     padding: 8px 12px;
@@ -4153,4 +4163,54 @@ input, textarea {
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.5px;
+}
+
+
+/* ==========================================================================
+   BULLETPROOF MODAL ISOLATION & D-NONE ENFORCEMENT
+   ========================================================================== */
+.cyber-modal.d-none,
+.composer-collapsible-tray.d-none,
+div.d-none,
+section.d-none,
+form.d-none,
+.d-none {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.file-drop-area-compact,
+.file-drop-area {
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.file-hidden-input {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 2 !important;
+}
+
+.composer-meta-strip {
+    position: relative !important;
+    z-index: 30 !important;
+}
+
+.meta-pill {
+    position: relative !important;
+    z-index: 31 !important;
+}
+
+.meta-pill-select,
+.meta-pill-input,
+.meta-pill-btn {
+    position: relative !important;
+    z-index: 32 !important;
+    pointer-events: auto !important;
 }
