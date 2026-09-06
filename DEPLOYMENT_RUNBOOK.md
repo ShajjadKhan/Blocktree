@@ -1,7 +1,7 @@
-# BlockTree Editorial — Production Deployment Runbook & Operations Guide (v3.8)
+# BlockTree Editorial — Production Deployment Runbook & Operations Guide (v3.9)
 
 > [!IMPORTANT]
-> **System Status**: All features are implemented, hardened, smoke-tested, and deployed to the remote production environment. The database and uploads directory are **100% blank and pristine** for production launch. Codebase is synchronized with upstream Git `main` (commit `e330ade`).
+> **System Status**: All features are implemented, hardened, smoke-tested, and deployed to the remote production environment. The database and uploads directory are **100% blank and pristine** for production launch. Codebase is synchronized with upstream Git `main` (commit `78e79e7`).
 
 ---
 
