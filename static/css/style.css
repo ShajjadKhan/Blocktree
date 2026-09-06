@@ -587,16 +587,25 @@ body.editorial-body {
 
 .tree-branch-line {
     fill: none;
-    stroke-width: 2.2px;
+    stroke: #00f3ff;
+    stroke-width: 2.5px;
     stroke-linecap: round;
-    transition: stroke-width 0.2s ease, opacity 0.2s ease;
+    opacity: 0.90;
+    filter: drop-shadow(0 0 4px rgba(0, 243, 255, 0.45));
+    transition: stroke-width 0.2s ease, opacity 0.2s ease, stroke 0.2s ease;
 }
 
-.branch-newsletter { stroke: url(#newsletter-glow); }
-.branch-perspective { stroke: url(#perspective-glow); }
-.branch-counterpoint { stroke: url(#counterpoint-glow); }
-.branch-deep-dive { stroke: url(#deepdive-glow); }
-.branch-discussion { stroke: url(#discussion-glow); }
+.tree-branch-dot {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.6));
+    pointer-events: none;
+}
+
+.branch-newsletter { stroke: #00f3ff; stroke: url(#newsletter-glow); }
+.branch-perspective { stroke: #10b981; stroke: url(#perspective-glow); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.45)); }
+.branch-counterpoint { stroke: #f43f5e; stroke: url(#counterpoint-glow); filter: drop-shadow(0 0 4px rgba(244, 63, 94, 0.45)); }
+.branch-deep-dive { stroke: #a855f7; stroke: url(#deepdive-glow); filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.45)); }
+.branch-discussion { stroke: #f59e0b; stroke: url(#discussion-glow); filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.45)); }
 
 /* ==========================================================================
    Editorial Canvas Card (The Visual Node)
@@ -818,6 +827,29 @@ body.editorial-body {
     gap: 2px;
 }
 
+.btn-card-reply {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid #10b981;
+    color: #10b981;
+    border-radius: 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 3px 7px;
+    cursor: pointer;
+    font-family: var(--font-heading);
+    letter-spacing: 0.5px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.btn-card-reply:hover {
+    background: #10b981;
+    color: #000;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+
 .btn-card-read {
     background: rgba(0, 243, 255, 0.15);
     border: 1px solid var(--cyan);
@@ -836,6 +868,55 @@ body.editorial-body {
     background: var(--cyan);
     color: #000;
     box-shadow: 0 0 10px var(--cyan-glow);
+}
+
+.reply-chip-btn {
+    background: rgba(0, 243, 255, 0.08);
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    color: var(--cyan);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.reply-chip-btn:hover {
+    background: var(--cyan);
+    color: #000;
+}
+
+.btn-clear-reply-target {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 6px;
+    transition: color 0.15s ease;
+}
+
+.btn-clear-reply-target:hover {
+    color: #fff;
+}
+
+.parent-picker-row {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.parent-picker-row select {
+    background: #0d1117;
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    color: #fff;
+    font-size: 11px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    width: 100%;
 }
 
 /* ==========================================================================

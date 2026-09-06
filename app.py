@@ -492,6 +492,12 @@ def handle_nodes():
             except (ValueError, TypeError):
                 parent_id = None
 
+        # Verify parent_id actually exists in nodes table to guarantee branch integrity
+        if parent_id is not None:
+            c.execute("SELECT id FROM nodes WHERE id = ?", (parent_id,))
+            if not c.fetchone():
+                parent_id = None
+
         if not raw_title:
             conn.close()
             return jsonify({"error": "Please provide an Article Headline / Title."}), 400

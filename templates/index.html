@@ -353,11 +353,23 @@
                 <div class="sponsor-name" id="composer-target-title">Parent Article Title</div>
                 <div class="small opacity-75" id="composer-target-author">by @Author</div>
             </div>
+            <button type="button" class="btn-clear-reply-target ms-auto" id="composer-btn-detach-reply" title="Detach and post as new standalone edition">&times;</button>
         </div>
 
         <form id="article-form" onsubmit="return false;">
             <input type="hidden" id="form-parent-id" value="">
             <input type="hidden" id="form-final-cover" value="">
+
+            <!-- Node Connection / Parent Article Selector -->
+            <div id="composer-parent-picker-group" class="parent-picker-row mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="small text-muted"><i class="bi bi-diagram-3-fill text-cyan"></i> Matrix Connection / Parent Node:</label>
+                    <span id="parent-picker-status" class="badge-cat cat-perspective" style="font-size: 8.5px;">Standalone</span>
+                </div>
+                <select id="form-parent-selector" class="cyber-select">
+                    <option value="">📰 Standalone Root Edition (Starts new root tree)</option>
+                </select>
+            </div>
 
             <div class="form-row-two">
                 <div class="input-group">

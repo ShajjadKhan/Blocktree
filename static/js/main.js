@@ -139,8 +139,32 @@ function panToCoordinate(targetX, targetY, scale = 0.85) {
 let currentNodes = [];
 let nodeMap = {};
 let activeReaderNodeId = null;
+let activeReaderNode = null; // Full active article cache
 let currentAuthor = null; // Verified author state
 let lastFocusedNodeId = null; // Track last clicked / focused post for camera recenter
+
+// Global Reply Action: Always cleanly opens composer connected to the target article
+window.replyToNode = function(nodeId) {
+    if (!nodeId) return;
+    playSound('click');
+    const nid = parseInt(nodeId);
+    lastFocusedNodeId = nid;
+    const node = nodeMap[nid] || (activeReaderNode && activeReaderNode.id === nid ? activeReaderNode : null);
+    if (node) {
+        openComposer(node.id, node.title, node.name);
+    } else {
+        fetch(`/api/nodes/${nid}`)
+            .then(res => res.json())
+            .then(data => {
+                const n = data.node || {};
+                if (data.node) nodeMap[nid] = data.node;
+                openComposer(nid, n.title || `Article #${nid}`, n.name || 'Author');
+            })
+            .catch(() => {
+                openComposer(nid, `Article #${nid}`, 'Author');
+            });
+    }
+};
 
 function resetView() {
     const targetId = (lastFocusedNodeId && nodeMap[lastFocusedNodeId])
@@ -386,8 +410,8 @@ async function loadMatrix(autoCenter = false) {
             let replyBadgeHtml = '';
             if (parent) {
                 replyBadgeHtml = `
-                    <div class="card-reply-lineage" title="Replying to ${parent.title}">
-                        <i class="bi bi-reply-fill"></i>
+                    <div class="card-reply-lineage cursor-pointer" title="Replying to ${parent.title}. Click to view parent." onclick="event.stopPropagation(); focusNode(${parent.id});">
+                        <i class="bi bi-reply-fill text-cyan"></i>
                         <span>↳ in reply to <strong>@${parent.name}</strong></span>
                     </div>
                 `;
@@ -429,10 +453,10 @@ async function loadMatrix(autoCenter = false) {
                         <span class="card-metric-tag" title="${node.claps} reader claps">
                             <i class="bi bi-heart-fill text-magenta"></i> ${node.claps}
                         </span>
-                        <span class="card-metric-tag" title="${node.reply_count} direct replies">
-                            <i class="bi bi-chat-dots-fill text-cyan"></i> ${node.reply_count}
-                        </span>
-                        <button class="btn-card-read" onclick="event.stopPropagation(); openReader(${node.id})">READ →</button>
+                        <button type="button" class="btn-card-reply" onclick="event.stopPropagation(); replyToNode(${node.id})" title="Reply directly to this article">
+                            <i class="bi bi-reply-fill"></i> ${node.reply_count > 0 ? node.reply_count : ''} REPLY
+                        </button>
+                        <button type="button" class="btn-card-read" onclick="event.stopPropagation(); openReader(${node.id})">READ →</button>
                     </div>
                 </div>
             `;
@@ -442,23 +466,59 @@ async function loadMatrix(autoCenter = false) {
             });
             
             nodesContainer.appendChild(card);
+        });
+
+        // 6. Render Curved Bezier Branch Lines using measured DOM heights & solid fallback strokes
+        const branchColors = {
+            'newsletter': '#00f3ff',
+            'perspective': '#10b981',
+            'counterpoint': '#f43f5e',
+            'deep dive': '#a855f7',
+            'discussion': '#f59e0b'
+        };
+
+        currentNodes.forEach(node => {
+            if (!node.parent_id) return;
+            const parent = nodeMap[node.parent_id];
+            if (!parent) return;
+
+            const parentElem = document.querySelector(`.editorial-card[data-id="${parent.id}"]`);
+            const parentH = parentElem ? parentElem.offsetHeight : 230;
             
-            // Render Curved Bezier Branch Line (from Parent bottom to Child top)
-            if (parent) {
-                const fromX = parent.x + 135;
-                const fromY = parent.y + 165;
-                const toX = node.x + 135;
-                const toY = node.y;
+            const fromX = parent.x + 135;
+            const fromY = parent.y + parentH;
+            const toX = node.x + 135;
+            const toY = node.y;
+
+            let pathD = '';
+            if (toY >= fromY) {
                 const midY = (fromY + toY) / 2;
-                
-                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.setAttribute("class", `tree-branch-line ${getBranchClass(node.category)}`);
-                path.setAttribute("d", `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`);
-                path.setAttribute("data-child", node.id);
-                path.setAttribute("data-parent", parent.id);
-                
-                svgCanvas.appendChild(path);
+                pathD = `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+            } else {
+                const curveOffset = Math.abs(toX - fromX) * 0.4 + 50;
+                pathD = `M ${fromX} ${fromY} C ${fromX} ${fromY + curveOffset}, ${toX} ${toY - curveOffset}, ${toX} ${toY}`;
             }
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const catKey = (node.category || '').toLowerCase();
+            const strokeColor = branchColors[catKey] || '#00f3ff';
+            
+            path.setAttribute("class", `tree-branch-line ${getBranchClass(node.category)}`);
+            path.setAttribute("d", pathD);
+            path.setAttribute("stroke", strokeColor);
+            path.setAttribute("data-child", node.id);
+            path.setAttribute("data-parent", parent.id);
+            
+            svgCanvas.appendChild(path);
+
+            // Glowing anchor dot at top of child card
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dot.setAttribute("cx", toX);
+            dot.setAttribute("cy", toY);
+            dot.setAttribute("r", "3.5");
+            dot.setAttribute("fill", strokeColor);
+            dot.setAttribute("class", "tree-branch-dot");
+            svgCanvas.appendChild(dot);
         });
         
         // Auto-center on initial load
@@ -493,6 +553,9 @@ async function openReader(nodeId) {
         const data = await res.json();
         const node = data.node || nodeMap[nodeId];
         if (!node) return;
+        
+        activeReaderNode = node;
+        nodeMap[node.id] = node;
         
         // Populate Meta
         document.getElementById('reader-category-pill').className = `badge-cat ${getCategoryClass(node.category)}`;
@@ -602,7 +665,12 @@ async function openReader(nodeId) {
                         <p class="reply-card-snippet">${r.text}</p>
                         <div class="reply-card-footer">
                             <span>by @${r.name}</span>
-                            <span class="text-cyan"><i class="bi bi-diagram-3"></i> View branch →</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="reply-chip-btn" onclick="event.stopPropagation(); replyToNode(${r.id})" title="Reply to this branch">
+                                    <i class="bi bi-reply-fill"></i> Reply
+                                </button>
+                                <span class="text-cyan"><i class="bi bi-diagram-3"></i> View →</span>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -621,6 +689,7 @@ async function openReader(nodeId) {
 readerCloseBtn.addEventListener('click', () => {
     readerDrawer.classList.add('d-none');
     activeReaderNodeId = null;
+    activeReaderNode = null;
 });
 
 readerPanBtn.addEventListener('click', () => {
@@ -652,10 +721,10 @@ readerClapBtn.addEventListener('click', async () => {
 });
 
 readerReplyBtn.addEventListener('click', () => {
-    if (!activeReaderNodeId) return;
-    const parentNode = nodeMap[activeReaderNodeId];
-    if (parentNode) {
-        openComposer(parentNode.id, parentNode.title, parentNode.name);
+    if (activeReaderNodeId) {
+        replyToNode(activeReaderNodeId);
+    } else if (activeReaderNode) {
+        replyToNode(activeReaderNode.id);
     }
 });
 
@@ -1050,12 +1119,28 @@ if (emojiToggleBtn && emojiDropdown) {
 
 function openComposer(parentId = null, parentTitle = null, parentAuthor = null) {
     playSound('click');
-    document.getElementById('form-parent-id').value = parentId || '';
+    
+    // Normalize and strictly validate parent ID
+    const pid = (parentId && !isNaN(parseInt(parentId))) ? parseInt(parentId) : null;
+    document.getElementById('form-parent-id').value = pid ? String(pid) : '';
     
     const banner = document.getElementById('composer-reply-target-banner');
     const modalTitle = document.getElementById('composer-modal-title');
     const submitText = document.getElementById('composer-submit-text');
     const catSelect = document.getElementById('form-category');
+    const parentSelector = document.getElementById('form-parent-selector');
+    const statusBadge = document.getElementById('parent-picker-status');
+    
+    // Populate parent connection selector with available matrix articles
+    if (parentSelector) {
+        let opts = `<option value="">📰 Standalone Root Edition (Starts new root tree)</option>`;
+        currentNodes.forEach(n => {
+            const isSel = (pid && n.id === pid) ? 'selected' : '';
+            const previewTitle = (n.title || `Article #${n.id}`).slice(0, 42);
+            opts += `<option value="${n.id}" ${isSel}>↳ Reply to #${n.id}: "${previewTitle}" (@${n.name})</option>`;
+        });
+        parentSelector.innerHTML = opts;
+    }
     
     // Verified author bar
     const vBanner = document.getElementById('composer-verified-author-banner');
@@ -1073,21 +1158,25 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
         vBanner.classList.add('d-none');
         gBanner.classList.remove('d-none');
         authorInput.readOnly = false;
-        authorInput.value = '';
+        if (!authorInput.value) authorInput.value = '';
     }
     
-    if (parentId) {
+    if (pid) {
         modalTitle.innerHTML = `<i class="bi bi-diagram-3-fill text-cyan"></i> Write Branch Reply`;
-        document.getElementById('composer-target-title').textContent = parentTitle || 'Parent Article';
-        document.getElementById('composer-target-author').textContent = `by @${parentAuthor || 'Author'}`;
+        const pNode = nodeMap[pid];
+        const finalTitle = parentTitle || (pNode ? pNode.title : `Article #${pid}`);
+        const finalAuthor = parentAuthor || (pNode ? pNode.name : 'Author');
+        document.getElementById('composer-target-title').textContent = finalTitle;
+        document.getElementById('composer-target-author').textContent = `by @${finalAuthor}`;
         banner.classList.remove('d-none');
+        if (statusBadge) statusBadge.textContent = `Connected to #${pid}`;
         submitText.textContent = "PUBLISH BRANCH REPLY";
-        catSelect.value = "Perspective";
+        if (catSelect.value === 'Newsletter') catSelect.value = "Perspective";
     } else {
         modalTitle.innerHTML = `<i class="bi bi-pen-fill text-cyan"></i> Publish New Edition`;
         banner.classList.add('d-none');
+        if (statusBadge) statusBadge.textContent = 'Standalone Mode';
         submitText.textContent = "PUBLISH TO MATRIX";
-        catSelect.value = "Newsletter";
     }
     
     overlay.style.display = 'block';
@@ -1106,18 +1195,70 @@ composerCloseX.addEventListener('click', closeComposer);
 composerCancelBtn.addEventListener('click', closeComposer);
 overlay.addEventListener('click', closeComposer);
 
+// Detach Reply button in Composer
+const btnDetachReply = document.getElementById('composer-btn-detach-reply');
+if (btnDetachReply) {
+    btnDetachReply.addEventListener('click', () => {
+        document.getElementById('form-parent-id').value = '';
+        const parentSelector = document.getElementById('form-parent-selector');
+        if (parentSelector) parentSelector.value = '';
+        const statusBadge = document.getElementById('parent-picker-status');
+        if (statusBadge) statusBadge.textContent = 'Standalone Mode';
+        document.getElementById('composer-reply-target-banner').classList.add('d-none');
+        document.getElementById('composer-modal-title').innerHTML = `<i class="bi bi-pen-fill text-cyan"></i> Publish New Edition`;
+        document.getElementById('composer-submit-text').textContent = "PUBLISH TO MATRIX";
+        showToast("Switched to standalone Root Edition");
+    });
+}
+
+// Parent selector interactive change
+const parentSelector = document.getElementById('form-parent-selector');
+if (parentSelector) {
+    parentSelector.addEventListener('change', () => {
+        const val = parentSelector.value;
+        const statusBadge = document.getElementById('parent-picker-status');
+        if (val) {
+            const pid = parseInt(val);
+            const pNode = nodeMap[pid];
+            document.getElementById('form-parent-id').value = String(pid);
+            document.getElementById('composer-target-title').textContent = pNode ? pNode.title : `Article #${pid}`;
+            document.getElementById('composer-target-author').textContent = `by @${pNode ? pNode.name : 'Author'}`;
+            document.getElementById('composer-reply-target-banner').classList.remove('d-none');
+            document.getElementById('composer-modal-title').innerHTML = `<i class="bi bi-diagram-3-fill text-cyan"></i> Write Branch Reply`;
+            document.getElementById('composer-submit-text').textContent = "PUBLISH BRANCH REPLY";
+            if (statusBadge) statusBadge.textContent = `Connected to #${pid}`;
+            if (document.getElementById('form-category').value === 'Newsletter') {
+                document.getElementById('form-category').value = "Perspective";
+            }
+        } else {
+            document.getElementById('form-parent-id').value = '';
+            document.getElementById('composer-reply-target-banner').classList.add('d-none');
+            document.getElementById('composer-modal-title').innerHTML = `<i class="bi bi-pen-fill text-cyan"></i> Publish New Edition`;
+            document.getElementById('composer-submit-text').textContent = "PUBLISH TO MATRIX";
+            if (statusBadge) statusBadge.textContent = 'Standalone Mode';
+        }
+    });
+}
+
 // Header Publish Button & Floating Add Button
 document.getElementById('header-publish-btn').addEventListener('click', () => {
     openComposer(null);
 });
 
 document.getElementById('add-btn').addEventListener('click', () => {
+    // If reader drawer is currently open, default to replying to that article
+    if (activeReaderNodeId && readerDrawer && !readerDrawer.classList.contains('d-none')) {
+        replyToNode(activeReaderNodeId);
+        return;
+    }
     openComposer(null);
 });
 
 // Submit Form
-form.addEventListener('submit', async () => {
-    const parentId = document.getElementById('form-parent-id').value;
+form.addEventListener('submit', async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const rawParentId = document.getElementById('form-parent-id').value;
+    const parentId = (rawParentId && !isNaN(parseInt(rawParentId))) ? parseInt(rawParentId) : null;
     const category = document.getElementById('form-category').value;
     const author = document.getElementById('form-author').value.trim();
     const title = document.getElementById('form-title').value.trim();
@@ -1144,7 +1285,7 @@ form.addEventListener('submit', async () => {
             name: author || (currentAuthor ? currentAuthor.pen_name : "Anonymous Thinker"),
             category: category,
             content: content,
-            parent_id: parentId || null,
+            parent_id: parentId,
             cover_image: coverImage,
             series_title: seriesTitle,
             series_part: seriesPart
