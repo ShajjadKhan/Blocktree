@@ -388,7 +388,27 @@ async function loadMatrix(autoCenter = false) {
         }
         nodesContainer.innerHTML = '';
         
-        // 5. Layout Safety Pass: Guarantee zero card collisions on canvas
+        // 5. Blank Matrix Empty State (When starting fresh in Production)
+        if (currentNodes.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'empty-matrix-canvas-card hud-glass';
+            emptyEl.style.cssText = 'position: absolute; left: 2780px; top: 150px; width: 440px; max-width: 90vw; padding: 36px 28px; text-align: center; border-radius: 16px; border: 1px solid rgba(0, 243, 255, 0.35); background: rgba(8, 15, 31, 0.9); box-shadow: 0 10px 40px rgba(0,0,0,0.6); pointer-events: auto; z-index: 10;';
+            emptyEl.innerHTML = `
+                <div style="font-size: 42px; margin-bottom: 12px;">🌱</div>
+                <h3 style="font-family: var(--font-display); color: #fff; font-size: 18px; margin-bottom: 8px; letter-spacing: 0.5px;">The Spatial Matrix is Pristine & Ready</h3>
+                <p style="color: var(--text-muted); font-size: 12px; line-height: 1.6; margin-bottom: 20px;">No editions have been published yet. Be the first author or creator to publish an edition to root the tree!</p>
+                <button type="button" class="btn-primary btn-gold" onclick="openPublishModal()" style="display: inline-flex; align-items: center; gap: 8px; margin: 0 auto; padding: 10px 22px; font-weight: 600; cursor: pointer;">
+                    <i class="bi bi-plus-circle-fill"></i> <span>PUBLISH FIRST EDITION</span>
+                </button>
+            `;
+            nodesContainer.appendChild(emptyEl);
+            if (autoCenter) {
+                panToCoordinate(3000, 250, 0.85);
+            }
+            return;
+        }
+
+        // 6. Layout Safety Pass: Guarantee zero card collisions on canvas
         const CARD_MIN_W = 340;
         const CARD_MIN_H = 260;
         const placed = [];
