@@ -2,49 +2,269 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlockTree - Live Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlockTree | 1x5 Auto-Spillover Referral Matrix</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
     <!-- Panzoom Library -->
     <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-    <!-- Linking our new CSS file -->
+    
+    <!-- Custom Cyber Matrix Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div id="stats-panel">
-        <div class="stat-box">Total Users: <span class="stat-value" id="total-users">3</span></div>
-        <div class="stat-box"><span class="live-dot"></span>Live Visitors: <span class="stat-value" id="live-visitors">12</span></div>
+    <!-- Ambient Cyber Audio Synth (toggleable) -->
+    <div id="audio-toggle" class="hud-glass" title="Toggle UI Sound Effects">
+        <i class="bi bi-volume-up-fill" id="audio-icon"></i>
     </div>
-    <div id="leaderboard"><h3>🏆 Top Referrers</h3><div id="leader-list">Loading...</div></div>
-    <button id="add-btn">+ Join Grid</button>
+
+    <!-- Top Left: Live HUD & Matrix Telemetry -->
+    <div id="stats-panel" class="hud-glass">
+        <div class="hud-header">
+            <span class="brand-title"><i class="bi bi-cpu-fill text-cyan"></i> BLOCKTREE MATRIX</span>
+            <span class="badge-status" id="hud-phase-badge">GENESIS PHASE</span>
+        </div>
+        
+        <div class="hud-stats-grid">
+            <div class="stat-item">
+                <span class="stat-label">TOTAL NODES</span>
+                <span class="stat-value text-cyan" id="stat-total-users">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">SPILLOVERS</span>
+                <span class="stat-value text-magenta" id="stat-spillovers">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">MATRIX DEPTH</span>
+                <span class="stat-value text-gold" id="stat-depth">GEN 0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">NETWORK LOAD</span>
+                <span class="stat-value" id="stat-live"><span class="live-pulse"></span><span id="live-visitors">14</span> Online</span>
+            </div>
+        </div>
+
+        <!-- Scarcity / FOMO Progress Gauge -->
+        <div class="scarcity-box" id="scarcity-container">
+            <div class="scarcity-labels">
+                <span id="scarcity-title">Genesis Open Access</span>
+                <span class="scarcity-ratio" id="scarcity-ratio">0 / 100</span>
+            </div>
+            <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" id="scarcity-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="scarcity-sub" id="scarcity-subtext">Free public placement active. User 101+ requires strict invite link.</div>
+        </div>
+    </div>
+
+    <!-- Top Right: Viral Leaderboard -->
+    <div id="leaderboard" class="hud-glass">
+        <div class="hud-header">
+            <span class="brand-title"><i class="bi bi-trophy-fill text-gold"></i> TOP SPONSORS</span>
+            <span class="badge-status-gold">LEADERBOARD</span>
+        </div>
+        <div id="leader-list" class="leader-scroll">
+            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Querying Matrix...</div>
+        </div>
+    </div>
+
+    <!-- Search & Quick Navigation HUD -->
+    <div id="search-hud" class="hud-glass">
+        <i class="bi bi-search text-cyan"></i>
+        <input type="text" id="node-search-input" placeholder="Search Citizen Name or Ref Code..." autocomplete="off">
+        <div id="search-results-dropdown" class="search-dropdown d-none"></div>
+    </div>
+
+    <!-- Canvas Floating Navigation Controls -->
+    <div id="controls-panel" class="hud-glass">
+        <button id="ctrl-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
+        <button id="ctrl-zoom-out" title="Zoom Out"><i class="bi bi-dash-lg"></i></button>
+        <button id="ctrl-reset" title="Center on Root Node"><i class="bi bi-crosshair"></i></button>
+        <button id="ctrl-fit" title="Fit Entire Matrix"><i class="bi bi-arrows-fullscreen"></i></button>
+    </div>
+
+    <!-- Bottom Left: Live Network Pulse Ticker -->
+    <div id="activity-ticker" class="hud-glass">
+        <span class="ticker-dot"></span>
+        <span class="ticker-text" id="ticker-text">Matrix initialized. Standing by for incoming connections...</span>
+    </div>
+
+    <!-- Primary Action: Join Grid / Invite-Only Access Button -->
+    <button id="add-btn" class="glow-pulse-btn">
+        <i class="bi bi-node-plus-fill"></i>
+        <span id="add-btn-text">JOIN MATRIX</span>
+    </button>
+
+    <!-- Modal Backdrop -->
     <div id="overlay"></div>
-    <div id="modal">
-        <h2>Add Node</h2>
-        <div class="input-group"><label>Your Name/Brand:</label><input type="text" id="node-name" placeholder="Enter name"></div>
-        <div class="input-group"><label>Short Text/Tagline:</label><input type="text" id="node-text" placeholder="Max 30 chars"></div>
-        <div class="input-group"><label>Profile Image:</label><input type="file" id="node-image" accept="image/*"></div>
-        <div class="btn-group"><button id="cancel-btn">Cancel</button><button id="submit-btn">Submit Data</button></div>
+
+    <!-- Registration / Node Placement Modal -->
+    <div id="modal" class="cyber-modal hud-glass">
+        <div class="modal-corner top-left"></div>
+        <div class="modal-corner top-right"></div>
+        <div class="modal-corner bottom-left"></div>
+        <div class="modal-corner bottom-right"></div>
+        
+        <div class="modal-header">
+            <h2 id="modal-title"><i class="bi bi-motherboard-fill text-cyan"></i> Connect Node</h2>
+            <button id="modal-close-x" class="modal-x">&times;</button>
+        </div>
+
+        <!-- Sponsor Callout Banner -->
+        <div id="sponsor-banner" class="sponsor-banner d-none">
+            <div class="sponsor-avatar-wrap">
+                <img id="sponsor-banner-avatar" src="" alt="Sponsor">
+            </div>
+            <div class="sponsor-meta">
+                <div class="sponsor-label">VERIFIED SPONSOR INVITATION</div>
+                <div class="sponsor-name" id="sponsor-banner-name">Invited by Citizen</div>
+                <div class="sponsor-sub" id="sponsor-banner-sub">Dual-node credit mapped & 1x5 spillover enabled</div>
+            </div>
+        </div>
+
+        <!-- Lockout Notice for Post-100 Users without Referral Link -->
+        <div id="lockout-notice" class="lockout-banner d-none">
+            <i class="bi bi-shield-lock-fill text-magenta fs-3"></i>
+            <div>
+                <div class="text-magenta fw-bold">STRICT INVITE-ONLY ACCESS</div>
+                <div class="small opacity-75">Genesis 100 slots filled. Please enter a valid 8-character referral code below.</div>
+            </div>
+        </div>
+
+        <form id="node-form" onsubmit="return false;">
+            <div class="input-group" id="ref-input-group">
+                <label><i class="bi bi-key-fill text-cyan"></i> Sponsor Referral Code (8-Hex):</label>
+                <input type="text" id="node-ref-input" placeholder="e.g. 5c0ad409 (Optional during Genesis)" maxlength="8">
+                <div class="input-hint" id="ref-status-hint">Leave blank for root Genesis placement</div>
+            </div>
+
+            <div class="input-group">
+                <label><i class="bi bi-person-badge-fill text-cyan"></i> Citizen Name / Alias *:</label>
+                <input type="text" id="node-name" placeholder="e.g. CyberVanguard" maxlength="40" required>
+            </div>
+
+            <div class="input-group">
+                <label><i class="bi bi-chat-quote-fill text-cyan"></i> Matrix Tagline / Broadcast *:</label>
+                <input type="text" id="node-text" placeholder="e.g. Decentralized Future Builder" maxlength="60" required>
+            </div>
+
+            <div class="input-group">
+                <label><i class="bi bi-image text-cyan"></i> Profile Avatar (Optional Image):</label>
+                <input type="file" id="node-image" accept="image/*">
+                <div class="input-hint">Leave empty to auto-generate custom AI Bot avatar</div>
+            </div>
+
+            <div class="btn-group">
+                <button type="button" id="cancel-btn" class="btn-secondary">CANCEL</button>
+                <button type="submit" id="submit-btn" class="btn-primary">
+                    <span id="submit-btn-text">TRANSMIT & DEPLOY</span>
+                </button>
+            </div>
+        </form>
     </div>
-    <div id="canvas-container">
-        <div id="tree-canvas">
-            <svg id="svg-canvas" width="10000" height="10000" style="position:absolute; top:0; left:0; z-index: 1;">
-                <path class="circuit-line" d="M 2000 2000 V 2080 H 1775 V 2150" />
-                <path class="circuit-line" d="M 2000 2000 V 2080 H 2225 V 2150" />
-            </svg>
-            <div class="node" style="top: 1900px; left: 1925px; border-color: gold; box-shadow: 0 0 15px gold;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
-                <h3 style="color: gold;">Admin</h3><p>Infinity Grid Core</p>
+
+    <!-- Node Inspector Drawer (Click any node to open) -->
+    <div id="node-inspector" class="inspector-drawer hud-glass">
+        <div class="inspector-header">
+            <h3><i class="bi bi-cpu text-cyan"></i> NODE TELEMETRY</h3>
+            <button id="inspector-close" class="modal-x">&times;</button>
+        </div>
+        
+        <div class="inspector-body">
+            <div class="inspector-profile">
+                <img id="insp-avatar" src="" alt="Avatar" class="insp-avatar">
+                <div class="insp-info">
+                    <h2 id="insp-name">Citizen</h2>
+                    <p id="insp-text" class="insp-quote">Tagline</p>
+                    <div id="insp-spillover-tag" class="spillover-tag d-none">⚡ SPILLOVER NODE</div>
+                </div>
             </div>
-            <div class="node" style="top: 2150px; left: 1700px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
-                <h3>User 1</h3><p>First connected user.</p>
+
+            <div class="insp-metrics-grid">
+                <div class="insp-metric-card">
+                    <div class="metric-label">GENERATION</div>
+                    <div class="metric-value text-gold" id="insp-depth">GEN 1</div>
+                </div>
+                <div class="insp-metric-card">
+                    <div class="metric-label">DIRECT SPONSORED</div>
+                    <div class="metric-value text-cyan" id="insp-direct-refs">0 Recruits</div>
+                </div>
+                <div class="insp-metric-card">
+                    <div class="metric-label">1x5 GRID SLOTS</div>
+                    <div class="metric-value text-magenta" id="insp-grid-slots">0 / 5 Filled</div>
+                </div>
+                <div class="insp-metric-card">
+                    <div class="metric-label">JOIN TIMESTAMP</div>
+                    <div class="metric-value small opacity-75" id="insp-joined">-</div>
+                </div>
             </div>
-            <div class="node" style="top: 2150px; left: 2150px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png" alt="Profile">
-                <h3>User 2</h3><p>Second connected user.</p>
+
+            <!-- Lineage Hierarchy -->
+            <div class="insp-lineage-box">
+                <div class="lineage-row">
+                    <span class="lineage-label"><i class="bi bi-award-fill text-gold"></i> SPONSOR:</span>
+                    <button id="insp-jump-sponsor" class="lineage-btn">Root Core</button>
+                </div>
+                <div class="lineage-row">
+                    <span class="lineage-label"><i class="bi bi-diagram-3-fill text-cyan"></i> PLACED UNDER:</span>
+                    <button id="insp-jump-parent" class="lineage-btn">Root Core</button>
+                </div>
+            </div>
+
+            <!-- Referral Link Generator Box -->
+            <div class="insp-ref-box">
+                <label><i class="bi bi-share-fill text-cyan"></i> OFFICIAL INVITATION LINK:</label>
+                <div class="ref-copy-group">
+                    <input type="text" id="insp-ref-link" readonly>
+                    <button id="insp-copy-btn" class="btn-copy"><i class="bi bi-copy"></i> COPY</button>
+                </div>
+                <div class="small opacity-50 mt-1">Earn leaderboard ranking and trigger viral matrix spillovers.</div>
+            </div>
+
+            <div class="inspector-actions">
+                <button id="insp-focus-btn" class="btn-primary w-100">
+                    <i class="bi bi-crosshair"></i> FOCUS CAMERA ON THIS NODE
+                </button>
             </div>
         </div>
     </div>
-    <!-- Linking our new JS file -->
+
+    <!-- Canvas Viewport -->
+    <div id="canvas-container">
+        <div id="tree-canvas">
+            <!-- Dynamic SVG Circuit Connectors -->
+            <svg id="svg-canvas" width="12000" height="12000">
+                <defs>
+                    <!-- Linear Gradient for standard circuit traces -->
+                    <linearGradient id="circuit-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00f3ff" stop-opacity="0.9" />
+                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.9" />
+                    </linearGradient>
+                    <!-- Linear Gradient for spillover traces -->
+                    <linearGradient id="spillover-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#d946ef" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#a855f7" stop-opacity="0.95" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            <!-- Nodes are dynamically populated here via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="hud-toast d-none">
+        <i class="bi bi-info-circle-fill" id="toast-icon"></i>
+        <span id="toast-message">Notification</span>
+    </div>
+
+    <!-- App JavaScript Logic -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
