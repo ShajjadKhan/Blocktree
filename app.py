@@ -42,6 +42,11 @@ ADMIN_USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,32}$')
 SQLI_SUSPICIOUS_REGEX = re.compile(r"(\b(SELECT|UNION|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC|BENCHMARK|PG_SLEEP)\b|--|/\*|\*/|;\s*$|'|\"|`|\bOR\b\s+[\d'\"=]|\bAND\b\s+[\d'\"=])", re.IGNORECASE)
 DUMMY_PASSWORD_HASH = generate_password_hash("BlocktreeTimingMitigationConstantTime2026!", method='pbkdf2:sha256:600000')
 
+def is_sqli_payload(val):
+    if not val:
+        return False
+    return bool(SQLI_SUSPICIOUS_REGEX.search(str(val)))
+
 def get_client_ip(req):
     fwd = req.headers.get('X-Forwarded-For')
     if fwd:
@@ -283,6 +288,16 @@ def init_db():
         locked_until DATETIME
     )''')
 
+    # Author/User Persistent Lockouts Table
+    c.execute('''CREATE TABLE IF NOT EXISTS author_lockouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier TEXT UNIQUE NOT NULL,
+        failed_count INTEGER DEFAULT 1,
+        first_failed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_failed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        locked_until DATETIME
+    )''')
+
     # 4. Immutable Security Audit Log Table
     c.execute('''CREATE TABLE IF NOT EXISTS admin_audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -458,13 +473,100 @@ def fix_overlapping_nodes():
 
 fix_overlapping_nodes()
 
+# ==========================================================================
+# AUTHOR/USER RATE LIMITING & BRUTE-FORCE LOCKOUT SUITE
+# ==========================================================================
+def check_author_rate_limit(req, identifier):
+    try:
+        ip = get_client_ip(req)
+        conn = get_db()
+        c = conn.cursor()
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        c.execute('''
+            SELECT failed_count, locked_until FROM author_lockouts 
+            WHERE (identifier = ? OR identifier = ?) AND locked_until > ?
+        ''', (identifier.lower(), ip, now))
+        row = c.fetchone()
+        if row:
+            locked_until = datetime.strptime(row['locked_until'], '%Y-%m-%d %H:%M:%S')
+            rem = int((locked_until - datetime.now()).total_seconds() / 60) + 1
+            return True, max(1, rem)
+        return False, 0
+    except Exception:
+        return False, 0
+
+def record_failed_author_attempt(req, identifier):
+    try:
+        ip = get_client_ip(req)
+        conn = get_db()
+        c = conn.cursor()
+        now = datetime.now()
+        now_str = now.strftime('%Y-%m-%d %H:%M:%S')
+        is_locked = False
+        rem_mins = 0
+        
+        for key in [identifier.lower(), ip]:
+            c.execute('SELECT id, failed_count FROM author_lockouts WHERE identifier = ?', (key,))
+            row = c.fetchone()
+            if row:
+                new_count = row['failed_count'] + 1
+                locked_until_str = None
+                if new_count >= 5:
+                    locked_until = now + timedelta(minutes=15)
+                    locked_until_str = locked_until.strftime('%Y-%m-%d %H:%M:%S')
+                    is_locked = True
+                    rem_mins = 15
+                c.execute('''
+                    UPDATE author_lockouts 
+                    SET failed_count = ?, last_failed_at = ?, locked_until = ?
+                    WHERE id = ?
+                ''', (new_count, now_str, locked_until_str, row['id']))
+            else:
+                c.execute('''
+                    INSERT INTO author_lockouts (identifier, failed_count, first_failed_at, last_failed_at)
+                    VALUES (?, 1, ?, ?)
+                ''', (key, now_str, now_str))
+        conn.commit()
+        return is_locked, rem_mins
+    except Exception:
+        return False, 0
+
+def clear_author_rate_limit(req, identifier):
+    try:
+        ip = get_client_ip(req)
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM author_lockouts WHERE identifier = ? OR identifier = ?', (identifier.lower(), ip))
+        conn.commit()
+    except Exception:
+        pass
+
 @app.route('/')
 def home():
     return render_template('index.html')
 
+# ==========================================================================
+# SECRET OBSCURE ADMIN GATEWAY & SCANNER PROBE TRAP
+# Keyword after slash: matrix-vault-9921
+# ==========================================================================
+SECRET_ADMIN_SLUG = "matrix-vault-9921"
+
+@app.route('/' + SECRET_ADMIN_SLUG)
+def secret_admin_gateway():
+    """The ONLY valid obscure route to open the administrative portal."""
+    return render_template('index.html', open_admin=True, secret_slug=SECRET_ADMIN_SLUG)
+
 @app.route('/admin')
-def admin_portal():
-    return render_template('index.html', open_admin=True)
+@app.route('/administrator')
+@app.route('/admin-login')
+@app.route('/wp-admin')
+@app.route('/backend')
+@app.route('/cpanel')
+def decoy_scanner_trap():
+    """Silently drops and logs automated scanner probes attempting to find admin paths."""
+    ip = get_client_ip(request)
+    log_admin_audit("SCANNER_PROBE_BLOCKED", "BLOCKED", None, details=f"Automated probe targeting forbidden URL: {request.path} from IP {ip}")
+    return "Not Found", 404
 
 # ==========================================================================
 # PHOTO ATTACHMENT / UPLOAD API
@@ -487,43 +589,66 @@ def upload_photo():
     return jsonify({"error": "Unsupported file format. Supported: PNG, JPG, JPEG, WEBP, GIF."}), 400
 
 # ==========================================================================
-# VERIFIED AUTHOR REGISTRATION & AUTHENTICATION
+# VERIFIED AUTHOR REGISTRATION & AUTHENTICATION (MILITARY-GRADE HARDENED)
 # ==========================================================================
+AUTHOR_USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,30}$')
+AUTHOR_EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
+
 @app.route('/api/auth/register', methods=['POST'])
 def register_author():
     data = request.json or {}
+    
+    # 1. Anti-Bot Honeypot Trap
+    hp_trap = data.get('hp_reg_token')
+    if hp_trap:
+        log_admin_audit("AUTHOR_BOT_TRAP", "BLOCKED", None, details="Automated bot filled author registration honeypot trap")
+        return jsonify({"error": "Security alert: Automated registration rejected."}), 400
+
     username = (data.get('username') or '').strip().lower()
     pen_name = (data.get('pen_name') or '').strip()
     email = (data.get('email') or '').strip().lower()
     password = (data.get('password') or '').strip()
     bio = (data.get('bio') or '').strip()
     avatar = (data.get('avatar') or '').strip()
-    
+
+    # 2. Strict Input Validation & Boundary Regex Shield
     if not username or not pen_name or not password:
         return jsonify({"error": "Username, Pen Name, and Password are required."}), 400
-    if len(username) < 3 or not re.match(r'^[a-zA-Z0-9_-]+$', username):
-        return jsonify({"error": "Username must be at least 3 characters and contain only letters, numbers, hyphens, or underscores."}), 400
+
+    if not AUTHOR_USERNAME_REGEX.match(username):
+        return jsonify({"error": "Username must be 3-30 characters containing only letters, numbers, and underscores."}), 400
+
+    if is_sqli_payload(username) or is_sqli_payload(pen_name) or (email and is_sqli_payload(email)):
+        log_admin_audit("AUTHOR_SQLI_BLOCKED", "QUARANTINED", username, details="SQL injection syntax in author registration")
+        return jsonify({"error": "Security Firewall Alert: Input contains forbidden SQL injection syntax or illegal characters."}), 400
+
+    if email and not AUTHOR_EMAIL_REGEX.match(email):
+        return jsonify({"error": "Invalid email address format."}), 400
+
     if len(password) < 6:
         return jsonify({"error": "Password must be at least 6 characters."}), 400
-        
+
+    ip = get_client_ip(request)
+    ua = request.headers.get('User-Agent', '')[:250]
+
     if not avatar:
         avatar_bg = secrets.choice(['2563eb', '7c3aed', '059669', 'd97706', 'dc2626'])
         avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={username}&backgroundColor={avatar_bg}"
-        
+
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT id FROM authors WHERE username = ?", (username,))
     if c.fetchone():
         conn.close()
         return jsonify({"error": f"Username '@{username}' is already registered. Please choose another."}), 409
-        
+
     if email:
         c.execute("SELECT id FROM authors WHERE email = ?", (email,))
         if c.fetchone():
             conn.close()
             return jsonify({"error": "This email address is already registered."}), 409
 
-    pw_hash = generate_password_hash(password)
+    pw_hash = generate_password_hash(password, method='pbkdf2:sha256:600000')
     c.execute('''
         INSERT INTO authors (username, pen_name, email, password_hash, bio, avatar, badge, is_verified, reputation_score)
         VALUES (?, ?, ?, ?, ?, ?, 'Verified Author', 1, 150)
@@ -531,8 +656,11 @@ def register_author():
     author_id = c.lastrowid
     conn.commit()
     conn.close()
-    
+
     session['author_id'] = author_id
+    session['author_fingerprint'] = compute_device_fingerprint(ip, ua)
+    log_admin_audit("AUTHOR_REGISTERED", "SUCCESS", username, target_id=author_id, details=f"New verified author registered from {ip}")
+
     return jsonify({
         "status": "success",
         "author": {
@@ -551,25 +679,67 @@ def register_author():
 @app.route('/api/auth/login', methods=['POST'])
 def login_author():
     data = request.json or {}
+    
+    # 1. Anti-Bot Automated Honeypot Trap
+    hp_trap = data.get('hp_auth_token')
+    if hp_trap:
+        log_admin_audit("AUTHOR_BOT_TRAP", "BLOCKED", None, details="Automated bot filled author login honeypot trap")
+        return jsonify({"error": "Security alert: Automated scan detected."}), 400
+
     identifier = (data.get('identifier') or '').strip().lower()
     password = (data.get('password') or '').strip()
-    
+
     if not identifier or not password:
         return jsonify({"error": "Username/Email and Password are required."}), 400
-        
+
+    ip = get_client_ip(request)
+    ua = request.headers.get('User-Agent', '')[:250]
+
+    # 2. Persistent Brute-Force Rate Limiting (Survives Restarts)
+    is_locked, rem_mins = check_author_rate_limit(request, identifier)
+    if is_locked:
+        log_admin_audit("AUTHOR_RATE_LIMIT_EXCEEDED", "LOCKED_OUT", identifier, details=f"Quarantined for {rem_mins} more minutes")
+        return jsonify({"error": f"Security Lockdown Active: Account / IP quarantined for {rem_mins} more minute(s) due to multiple failed authentication attempts."}), 429
+
+    # 3. SQL Injection Boundary Shield
+    if is_sqli_payload(identifier):
+        record_failed_author_attempt(request, identifier)
+        log_admin_audit("AUTHOR_SQLI_ATTEMPT_BLOCKED", "QUARANTINED", identifier, details="SQL injection syntax in author login")
+        return jsonify({"error": "Security Firewall Alert: Input contains forbidden SQL injection syntax or illegal characters."}), 400
+
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM authors WHERE LOWER(username) = ? OR LOWER(email) = ?", (identifier, identifier))
     author = c.fetchone()
     conn.close()
-    
-    if not author or not check_password_hash(author['password_hash'], password):
+
+    # 4. Anti-Enumeration Timing Side-Channel Defense
+    # Constant-time hashing computation guarantees non-existent users take the same ~200ms
+    if not author:
+        check_password_hash(DUMMY_PASSWORD_HASH, password)
+        locked_now, lock_mins = record_failed_author_attempt(request, identifier)
+        log_admin_audit("AUTHOR_LOGIN_FAILED", "FAILED", identifier, details=f"Non-existent author attempt from {ip}")
+        if locked_now:
+            return jsonify({"error": f"Security Lockdown Active: Account / IP quarantined for {lock_mins} minutes due to multiple failed attempts."}), 429
         return jsonify({"error": "Invalid username/email or password."}), 401
-        
+
+    if not check_password_hash(author['password_hash'], password):
+        locked_now, lock_mins = record_failed_author_attempt(request, identifier)
+        log_admin_audit("AUTHOR_LOGIN_FAILED", "FAILED", identifier, details=f"Invalid password for author {author['username']} from {ip}")
+        if locked_now:
+            return jsonify({"error": f"Security Lockdown Active: Account / IP quarantined for {lock_mins} minutes due to multiple failed attempts."}), 429
+        return jsonify({"error": "Invalid username/email or password."}), 401
+
     if author['is_banned']:
+        log_admin_audit("AUTHOR_BANNED_LOGIN_BLOCKED", "BLOCKED", author['username'], details="Banned author attempted login")
         return jsonify({"error": f"This author account is suspended. Reason: {author['ban_reason'] or 'Violation of community guidelines'}."}), 403
 
+    # Success: Clear lockouts, bind HMAC session fingerprint
+    clear_author_rate_limit(request, identifier)
     session['author_id'] = author['id']
+    session['author_fingerprint'] = compute_device_fingerprint(ip, ua)
+    log_admin_audit("AUTHOR_LOGIN_SUCCESS", "SUCCESS", author['username'], target_id=author['id'], details=f"Author authenticated from {ip}")
+
     return jsonify({
         "status": "success",
         "author": {
@@ -588,6 +758,7 @@ def login_author():
 @app.route('/api/auth/logout', methods=['POST'])
 def logout_author():
     session.pop('author_id', None)
+    session.pop('author_fingerprint', None)
     return jsonify({"status": "success"})
 
 @app.route('/api/auth/me', methods=['GET'])
@@ -595,17 +766,29 @@ def get_current_author():
     author_id = session.get('author_id')
     if not author_id:
         return jsonify({"logged_in": False, "author": None})
-        
+
+    ip = get_client_ip(request)
+    ua = request.headers.get('User-Agent', '')[:250]
+
+    # Device Fingerprint Anti-Hijack Check
+    expected_fp = compute_device_fingerprint(ip, ua)
+    stored_fp = session.get('author_fingerprint')
+    if stored_fp and stored_fp != expected_fp:
+        log_admin_audit("AUTHOR_SESSION_HIJACK_DETECTED", "BLOCKED", None, target_id=author_id, details=f"Author session fingerprint mismatch from IP {ip}")
+        session.pop('author_id', None)
+        session.pop('author_fingerprint', None)
+        return jsonify({"logged_in": False, "author": None})
+
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM authors WHERE id = ?", (author_id,))
     author = c.fetchone()
-    
+
     if not author:
         session.pop('author_id', None)
         conn.close()
         return jsonify({"logged_in": False, "author": None})
-        
+
     # Query author series
     c.execute('''
         SELECT DISTINCT series_title 
@@ -614,7 +797,7 @@ def get_current_author():
     ''', (author_id,))
     series_rows = c.fetchall()
     series_list = [r[0] for r in series_rows]
-    
+
     # Query articles count and claps count
     c.execute('''
         SELECT COUNT(id), COALESCE(SUM(claps), 0) 
@@ -623,7 +806,7 @@ def get_current_author():
     ''', (author_id,))
     art_count, total_claps = c.fetchone()
     conn.close()
-    
+
     return jsonify({
         "logged_in": True,
         "author": {
@@ -638,14 +821,11 @@ def get_current_author():
             "is_banned": bool(author['is_banned']),
             "reputation_score": author['reputation_score'],
             "series": series_list,
-            "article_count": art_count,
+            "articles_count": art_count,
             "total_claps": total_claps
         }
     })
 
-# ==========================================================================
-# AUTHOR PORTFOLIO & SERIES DISCOVERY
-# ==========================================================================
 @app.route('/api/authors/<int:author_id>', methods=['GET'])
 def get_author_portfolio(author_id):
     conn = get_db()

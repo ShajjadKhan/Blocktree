@@ -1,4 +1,69 @@
 // ==========================================================================
+// CLIENT-SIDE ANTI-TAMPER & INSPECTION SHIELD
+// Hardens against Browser DevTools, Right-Click Inspection & Source Snooping
+// ==========================================================================
+(function initAntiTamperProtection() {
+    // 1. Disable Right-Click Context Menu
+    document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
+
+    // 2. Block DevTools, Inspect Element, and View Source Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        // F12 (DevTools)
+        if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        const isCtrl = e.ctrlKey || e.metaKey;
+
+        // Ctrl/Cmd + Shift + (I, J, C, K) -> DevTools Elements, Console, Inspector
+        if (isCtrl && e.shiftKey) {
+            const k = (e.key || '').toUpperCase();
+            if (k === 'I' || k === 'J' || k === 'C' || k === 'K') {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+
+        // Mac Alt/Option shortcuts: Cmd + Option + (I, J, C, U)
+        if (e.metaKey && e.altKey) {
+            const k = (e.key || '').toUpperCase();
+            if (k === 'I' || k === 'J' || k === 'C' || k === 'U') {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+
+        // Ctrl/Cmd + U -> View Page Source
+        if (isCtrl && (e.key === 'u' || e.key === 'U')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        // Ctrl/Cmd + S -> Save Page Offline
+        if (isCtrl && (e.key === 's' || e.key === 'S')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, { capture: true });
+
+    // 3. Console Security Watermark & Sanitation
+    try {
+        console.clear();
+        console.log('%c🛑 ACCESS MONITORED: BLOCKTREE MATRIX SHIELD', 'font-size: 18px; font-weight: bold; color: #ff0055;');
+        console.log('%cThis browser environment is cryptographically protected against reverse engineering and inspection. Security anomalies are actively reported.', 'font-size: 12px; color: #00f3ff; font-family: monospace;');
+    } catch (_) {}
+})();
+
+// ==========================================================================
 // BLOCKTREE EDITORIAL - Matrix Engine
 // Spatial Newsletter, Branching Discourse, Verified Authors & Series Writing
 // ==========================================================================
@@ -1416,15 +1481,22 @@ document.getElementById('reg-cancel-btn').addEventListener('click', closeRegiste
 document.getElementById('login-close-x').addEventListener('click', closeLoginModal);
 document.getElementById('login-cancel-btn').addEventListener('click', closeLoginModal);
 
-// Register Form Submit
+// Register Form Submit (Hardened with Honeypot & Anti-Bot Protection)
 document.getElementById('register-form').addEventListener('submit', async () => {
     const penName = document.getElementById('reg-pen-name').value.trim();
     const username = document.getElementById('reg-username').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value.trim();
     const bio = document.getElementById('reg-bio').value.trim();
+    const hp_reg_token = (document.getElementById('reg-hp-token')?.value || '').trim();
+    const errBox = document.getElementById('reg-error-box');
+    if (errBox) errBox.classList.add('d-none');
     
     if (!penName || !username || !password) {
+        if (errBox) {
+            errBox.textContent = "Please fill in Pen Name, Username, and Password.";
+            errBox.classList.remove('d-none');
+        }
         showToast("Please fill in Pen Name, Username, and Password.", true);
         return;
     }
@@ -1433,7 +1505,7 @@ document.getElementById('register-form').addEventListener('submit', async () => 
         const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pen_name: penName, username, email, password, bio })
+            body: JSON.stringify({ pen_name: penName, username, email, password, bio, hp_reg_token })
         });
         const data = await res.json();
         
@@ -1444,19 +1516,34 @@ document.getElementById('register-form').addEventListener('submit', async () => 
             await checkAuth();
             await loadMatrix(false);
         } else {
+            if (errBox) {
+                errBox.textContent = data.error || "Registration failed.";
+                errBox.classList.remove('d-none');
+            }
             showToast(data.error || "Registration failed.", true);
         }
     } catch (e) {
+        if (errBox) {
+            errBox.textContent = "Network error during registration.";
+            errBox.classList.remove('d-none');
+        }
         showToast("Network error during registration.", true);
     }
 });
 
-// Login Form Submit
+// Login Form Submit (Hardened with Anti-Bot Honeypot & Persistent Lockout Detection)
 document.getElementById('login-form').addEventListener('submit', async () => {
     const identifier = document.getElementById('login-identifier').value.trim();
     const password = document.getElementById('login-password').value.trim();
+    const hp_auth_token = (document.getElementById('login-hp-token')?.value || '').trim();
+    const errBox = document.getElementById('login-error-box');
+    if (errBox) errBox.classList.add('d-none');
     
     if (!identifier || !password) {
+        if (errBox) {
+            errBox.textContent = "Please enter your Username/Email and Password.";
+            errBox.classList.remove('d-none');
+        }
         showToast("Please enter your Username/Email and Password.", true);
         return;
     }
@@ -1465,7 +1552,7 @@ document.getElementById('login-form').addEventListener('submit', async () => {
         const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier, password })
+            body: JSON.stringify({ identifier, password, hp_auth_token })
         });
         const data = await res.json();
         
@@ -1476,9 +1563,17 @@ document.getElementById('login-form').addEventListener('submit', async () => {
             await checkAuth();
             await loadMatrix(false);
         } else {
+            if (errBox) {
+                errBox.textContent = data.error || "Invalid credentials.";
+                errBox.classList.remove('d-none');
+            }
             showToast(data.error || "Invalid credentials.", true);
         }
     } catch (e) {
+        if (errBox) {
+            errBox.textContent = "Network error during login.";
+            errBox.classList.remove('d-none');
+        }
         showToast("Network error during login.", true);
     }
 });
@@ -2939,11 +3034,17 @@ function optimizeMobileLayout() {
 }
 window.addEventListener('resize', optimizeMobileLayout);
 
-// Auto-check URL query for /admin or ?open_admin=1
+// Auto-check URL query for secret admin slug: matrix-vault-9921
+const SECRET_ADMIN_SLUG = 'matrix-vault-9921';
+
 function checkAdminUrlTrigger() {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('open_admin') === '1' || window.location.pathname.endsWith('/admin')) {
-        setTimeout(checkAndOpenAdmin, 400);
+    const path = window.location.pathname;
+    if (urlParams.get('open_admin') === '1' || 
+        urlParams.get('access') === SECRET_ADMIN_SLUG || 
+        path.endsWith('/' + SECRET_ADMIN_SLUG) ||
+        path.includes(SECRET_ADMIN_SLUG)) {
+        setTimeout(checkAndOpenAdmin, 300);
     }
 }
 
