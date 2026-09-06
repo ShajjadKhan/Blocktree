@@ -3515,3 +3515,118 @@ textarea#form-content {
         font-size: 9.5px !important;
     }
 }
+
+/* ==========================================================================
+   Admin Security & 2FA Suite Styling
+   ========================================================================== */
+.sec-banner-card {
+    background: linear-gradient(135deg, rgba(16, 26, 50, 0.8) 0%, rgba(20, 35, 70, 0.6) 100%);
+    border: 1px solid rgba(0, 243, 255, 0.25);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.sec-banner-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.sec-banner-icon {
+    font-size: 26px;
+    line-height: 1;
+    background: rgba(212, 168, 83, 0.15);
+    border: 1px solid rgba(212, 168, 83, 0.3);
+    border-radius: 10px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.sec-banner-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 4px 0;
+}
+.sec-banner-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+.sec-banner-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.secret-display-box {
+    background: rgba(4, 9, 20, 0.8);
+    border: 1px dashed rgba(0, 243, 255, 0.35);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+.sec-code-text {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--cyan);
+    letter-spacing: 2px;
+    font-weight: 700;
+    word-break: break-all;
+}
+.backup-codes-box {
+    background: rgba(4, 9, 20, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+.backup-codes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    margin-top: 6px;
+}
+.backup-code-item {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 4px 8px;
+    text-align: center;
+    letter-spacing: 1px;
+}
+.sec-section-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.badge-blocked {
+    background: rgba(244, 63, 94, 0.2);
+    color: #f43f5e;
+    border: 1px solid rgba(244, 63, 94, 0.4);
+}
+.badge-locked {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ff4545;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    font-weight: bold;
+}
+.badge-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}

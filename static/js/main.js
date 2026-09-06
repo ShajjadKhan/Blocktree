@@ -2188,6 +2188,9 @@ const adminLoginError = document.getElementById('admin-login-error');
 const adminUserInput = document.getElementById('admin-user-input');
 const adminPassInput = document.getElementById('admin-pass-input');
 
+let adminCsrfToken = '';
+let currentAdminSecurityStatus = null;
+
 // Open Admin Gateway
 if (btnOpenAdmin) {
     btnOpenAdmin.addEventListener('click', async (e) => {
@@ -2201,6 +2204,7 @@ async function checkAndOpenAdmin() {
     try {
         const res = await fetch('/api/admin/me');
         const data = await res.json();
+        if (data.csrf_token) adminCsrfToken = data.csrf_token;
         if (data.logged_in) {
             openAdminDashboard();
         } else {
@@ -2216,6 +2220,14 @@ function openAdminLogin() {
     if (adminLoginModal) {
         adminLoginModal.classList.remove('d-none');
         if (adminLoginError) adminLoginError.classList.add('d-none');
+        const totpGroup = document.getElementById('admin-totp-group');
+        if (totpGroup) totpGroup.classList.add('d-none');
+        const totpInput = document.getElementById('admin-totp-input');
+        if (totpInput) totpInput.value = '';
+        const hpInput = document.getElementById('admin-hp-token');
+        if (hpInput) hpInput.value = '';
+        const submitBtn = document.getElementById('admin-login-submit-btn');
+        if (submitBtn) submitBtn.innerHTML = '<i class="bi bi-shield-check"></i> <span>AUTHENTICATE & ENTER</span>';
         if (adminUserInput) setTimeout(() => adminUserInput.focus(), 100);
     }
 }
@@ -2232,12 +2244,14 @@ const adminLoginCancelBtn = document.getElementById('admin-login-cancel-btn');
 if (adminLoginCloseX) adminLoginCloseX.addEventListener('click', closeAdminLogin);
 if (adminLoginCancelBtn) adminLoginCancelBtn.addEventListener('click', closeAdminLogin);
 
-// Admin Login Form Submit
+// Admin Login Form Submit with Defense-in-Depth Handling (SQLi Shield, Honeypot, 2FA)
 if (adminLoginForm) {
     adminLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = (adminUserInput ? adminUserInput.value : '').trim();
         const password = (adminPassInput ? adminPassInput.value : '').trim();
+        const hp_sec_token = (document.getElementById('admin-hp-token')?.value || '').trim();
+        const totp_code = (document.getElementById('admin-totp-input')?.value || '').trim();
         if (!username || !password) return;
 
         const submitBtn = document.getElementById('admin-login-submit-btn');
@@ -2250,16 +2264,36 @@ if (adminLoginForm) {
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, hp_sec_token, totp_code })
             });
             const result = await res.json();
 
             if (res.ok && result.status === 'success') {
+                if (result.csrf_token) adminCsrfToken = result.csrf_token;
                 closeAdminLogin();
                 if (adminPassInput) adminPassInput.value = '';
+                const totpInput = document.getElementById('admin-totp-input');
+                if (totpInput) totpInput.value = '';
+                const totpGroup = document.getElementById('admin-totp-group');
+                if (totpGroup) totpGroup.classList.add('d-none');
                 playSound('success');
                 showToast('Admin Authentication Verified', 'success');
                 openAdminDashboard();
+            } else if (result.status === 'mfa_required') {
+                playSound('info');
+                const totpGroup = document.getElementById('admin-totp-group');
+                if (totpGroup) totpGroup.classList.remove('d-none');
+                const totpInput = document.getElementById('admin-totp-input');
+                if (totpInput) {
+                    setTimeout(() => totpInput.focus(), 100);
+                }
+                if (adminLoginError) {
+                    adminLoginError.innerHTML = '<i class="bi bi-shield-lock-fill text-gold"></i> Two-Factor Authentication required. Enter 6-digit TOTP or backup code.';
+                    adminLoginError.classList.remove('d-none');
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="bi bi-shield-check"></i> <span>CONFIRM 2FA & ENTER</span>';
+                }
             } else {
                 playSound('error');
                 if (adminLoginError) {
@@ -2276,13 +2310,13 @@ if (adminLoginForm) {
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="bi bi-shield-check"></i> <span>AUTHENTICATE & ENTER</span>';
             }
         }
     });
 }
 
 // Open Admin Dashboard
+
 async function openAdminDashboard() {
     if (overlay) overlay.style.display = 'block';
     if (adminDashboardModal) {
@@ -2319,7 +2353,7 @@ if (adminLogoutBtn) {
     adminLogoutBtn.addEventListener('click', async () => {
         playSound('click');
         try {
-            await fetch('/api/admin/logout', { method: 'POST' });
+            await fetch('/api/admin/logout', { method: 'POST', headers: { 'X-CSRF-Token': adminCsrfToken } });
         } catch (e) {}
         closeAdminDashboard();
         showToast('Admin Session Terminated', 'info');
@@ -2354,7 +2388,7 @@ if (adminPwForm) {
         try {
             const res = await fetch('/api/admin/change-password', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': adminCsrfToken },
                 body: JSON.stringify({ old_password, new_password })
             });
             const result = await res.json();
@@ -2489,6 +2523,10 @@ window.switchAdminTab = (tabName) => {
     const panel = document.getElementById(`adm-tab-${tabName}`);
     if (btn) btn.classList.add('active');
     if (panel) panel.classList.remove('d-none');
+
+    if (tabName === 'security') {
+        loadAdminSecurityData();
+    }
 };
 
 // Render Articles Moderation Table
@@ -2765,7 +2803,7 @@ if (adminRevokeConfirmBtn) {
         try {
             const res = await fetch(`/api/admin/nodes/${targetId}/revoke`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': adminCsrfToken },
                 body: JSON.stringify({ reason })
             });
             const result = await res.json();
@@ -2790,7 +2828,7 @@ window.adminRestorePost = async (nodeId) => {
     try {
         const res = await fetch(`/api/admin/nodes/${nodeId}/restore`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': adminCsrfToken }
         });
         const result = await res.json();
         if (res.ok) {
@@ -2814,7 +2852,8 @@ window.adminDeletePost = async (nodeId) => {
     playSound('click');
     try {
         const res = await fetch(`/api/admin/nodes/${nodeId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { 'X-CSRF-Token': adminCsrfToken }
         });
         const result = await res.json();
         if (res.ok) {
@@ -2834,7 +2873,7 @@ window.adminDeletePost = async (nodeId) => {
 window.adminToggleVerifyAuthor = async (authorId) => {
     playSound('click');
     try {
-        const res = await fetch(`/api/admin/authors/${authorId}/toggle-verify`, { method: 'POST' });
+        const res = await fetch(`/api/admin/authors/${authorId}/toggle-verify`, { method: 'POST', headers: { 'X-CSRF-Token': adminCsrfToken } });
         const result = await res.json();
         if (res.ok) {
             showToast(result.message, 'success');
@@ -2849,7 +2888,7 @@ window.adminToggleVerifyAuthor = async (authorId) => {
 window.adminToggleBanAuthor = async (authorId) => {
     playSound('click');
     try {
-        const res = await fetch(`/api/admin/authors/${authorId}/toggle-ban`, { method: 'POST' });
+        const res = await fetch(`/api/admin/authors/${authorId}/toggle-ban`, { method: 'POST', headers: { 'X-CSRF-Token': adminCsrfToken } });
         const result = await res.json();
         if (res.ok) {
             showToast(result.message, 'success');
@@ -2886,4 +2925,269 @@ function checkAdminUrlTrigger() {
     if (urlParams.get('open_admin') === '1' || window.location.pathname.endsWith('/admin')) {
         setTimeout(checkAndOpenAdmin, 400);
     }
+}
+
+// ==========================================================================
+// Admin Security & Audit Telemetry Controller
+// ==========================================================================
+async function loadAdminSecurityData() {
+    await Promise.all([loadAdminSecurityStatus(), loadAdminAuditLogs()]);
+}
+
+async function loadAdminSecurityStatus() {
+    try {
+        const res = await fetch('/api/admin/security/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentAdminSecurityStatus = data;
+
+        const badge = document.getElementById('adm-2fa-badge');
+        const btn = document.getElementById('adm-toggle-2fa-btn');
+        if (badge) {
+            if (data.totp_enabled) {
+                badge.className = 'badge-pill badge-success';
+                badge.innerHTML = '<i class="bi bi-shield-check"></i> 2FA Protected';
+            } else {
+                badge.className = 'badge-pill badge-danger';
+                badge.innerHTML = '<i class="bi bi-x-circle"></i> Disabled';
+            }
+        }
+        if (btn) {
+            if (data.totp_enabled) {
+                btn.innerHTML = '<i class="bi bi-shield-slash"></i> Disable 2FA';
+                btn.className = 'btn-secondary btn-sm';
+            } else {
+                btn.innerHTML = '<i class="bi bi-qr-code-scan"></i> Configure 2FA';
+                btn.className = 'btn-primary btn-sm btn-cyan';
+            }
+        }
+    } catch (err) {
+        console.error("Failed to load security status:", err);
+    }
+}
+
+async function loadAdminAuditLogs() {
+    const tbody = document.getElementById('adm-audit-tbody');
+    if (!tbody) return;
+    try {
+        const res = await fetch('/api/admin/security/audit-logs');
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Failed to load security audit logs.</td></tr>';
+            return;
+        }
+        const data = await res.json();
+        const logs = data.logs || [];
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No security events recorded yet.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        logs.forEach(l => {
+            let statusBadge = `<span class="badge-pill badge-success">${escapeHtml(l.status)}</span>`;
+            if (l.status === 'BLOCKED' || l.status === 'LOCKED') {
+                statusBadge = `<span class="badge-pill badge-blocked">${escapeHtml(l.status)}</span>`;
+            } else if (l.status === 'FAILED') {
+                statusBadge = `<span class="badge-pill badge-danger">${escapeHtml(l.status)}</span>`;
+            }
+
+            let eventClass = 'text-cyan';
+            if (l.event_type.includes('SQLI') || l.event_type.includes('HIJACK') || l.event_type.includes('LOCKOUT')) {
+                eventClass = 'text-magenta';
+            } else if (l.event_type.includes('REVOKE') || l.event_type.includes('BAN')) {
+                eventClass = 'text-gold';
+            }
+
+            html += `<tr>
+                <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(l.created_at)}</td>
+                <td><strong class="${eventClass}" style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(l.event_type)}</strong></td>
+                <td>${statusBadge}</td>
+                <td><code style="color: #fff;">${escapeHtml(l.admin_user || 'system')}</code></td>
+                <td><span style="font-family: var(--font-mono); font-size: 11px; color: var(--cyan);">${escapeHtml(l.ip_address)}</span></td>
+                <td style="font-size: 11px; color: var(--text-muted);">${escapeHtml(l.details || '-')}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Network error loading telemetry.</td></tr>';
+    }
+}
+
+// 2FA Setup Modal Controls
+const admin2faModal = document.getElementById('admin-2fa-modal');
+const admin2faCloseX = document.getElementById('admin-2fa-close-x');
+const admin2faCancelBtn = document.getElementById('adm-2fa-cancel-btn');
+const admin2faDisableCancelBtn = document.getElementById('adm-2fa-disable-cancel-btn');
+const admToggle2faBtn = document.getElementById('adm-toggle-2fa-btn');
+const admRefreshAuditBtn = document.getElementById('adm-refresh-audit-btn');
+const admCopySecretBtn = document.getElementById('adm-copy-secret-btn');
+const adm2faActivateBtn = document.getElementById('adm-2fa-activate-btn');
+const adm2faDisableConfirmBtn = document.getElementById('adm-2fa-disable-confirm-btn');
+
+function close2faModal() {
+    if (admin2faModal) admin2faModal.classList.add('d-none');
+}
+if (admin2faCloseX) admin2faCloseX.addEventListener('click', close2faModal);
+if (admin2faCancelBtn) admin2faCancelBtn.addEventListener('click', close2faModal);
+if (admin2faDisableCancelBtn) admin2faDisableCancelBtn.addEventListener('click', close2faModal);
+
+if (admRefreshAuditBtn) {
+    admRefreshAuditBtn.addEventListener('click', async () => {
+        playSound('click');
+        await loadAdminAuditLogs();
+        showToast('Audit Telemetry Refreshed', 'info');
+    });
+}
+
+if (admToggle2faBtn) {
+    admToggle2faBtn.addEventListener('click', async () => {
+        playSound('click');
+        if (!admin2faModal) return;
+
+        const isEnabled = currentAdminSecurityStatus && currentAdminSecurityStatus.totp_enabled;
+        const stepSetup = document.getElementById('adm-2fa-step-setup');
+        const stepDisable = document.getElementById('adm-2fa-step-disable');
+
+        if (isEnabled) {
+            // Show Disable Flow
+            if (stepSetup) stepSetup.classList.add('d-none');
+            if (stepDisable) stepDisable.classList.remove('d-none');
+            const errBox = document.getElementById('adm-2fa-disable-error');
+            if (errBox) errBox.classList.add('d-none');
+            const codeInput = document.getElementById('adm-2fa-disable-code');
+            if (codeInput) codeInput.value = '';
+            admin2faModal.classList.remove('d-none');
+        } else {
+            // Show Enable Flow - generate key
+            if (stepSetup) stepSetup.classList.remove('d-none');
+            if (stepDisable) stepDisable.classList.add('d-none');
+            const errBox = document.getElementById('adm-2fa-error');
+            if (errBox) errBox.classList.add('d-none');
+            const codeInput = document.getElementById('adm-2fa-confirm-input');
+            if (codeInput) codeInput.value = '';
+
+            try {
+                const res = await fetch('/api/admin/security/2fa/generate', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': adminCsrfToken }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const secretElem = document.getElementById('adm-2fa-secret-code');
+                    if (secretElem) secretElem.textContent = data.secret;
+
+                    const codesList = document.getElementById('adm-2fa-backup-codes-list');
+                    if (codesList && data.backup_codes) {
+                        codesList.innerHTML = data.backup_codes.map(c => `<span class="backup-code-item">${escapeHtml(c)}</span>`).join('');
+                    }
+                    admin2faModal.classList.remove('d-none');
+                } else {
+                    showToast(data.error || 'Failed to initialize 2FA generator.', 'error');
+                }
+            } catch (err) {
+                showToast('Network error initializing 2FA.', 'error');
+            }
+        }
+    });
+}
+
+if (admCopySecretBtn) {
+    admCopySecretBtn.addEventListener('click', () => {
+        const secret = document.getElementById('adm-2fa-secret-code')?.textContent || '';
+        if (secret) {
+            navigator.clipboard.writeText(secret.replace(/\s+/g, ''));
+            playSound('click');
+            showToast('Secret key copied to clipboard!', 'info');
+        }
+    });
+}
+
+if (adm2faActivateBtn) {
+    adm2faActivateBtn.addEventListener('click', async () => {
+        const input = document.getElementById('adm-2fa-confirm-input');
+        const code = input ? input.value.trim() : '';
+        const errBox = document.getElementById('adm-2fa-error');
+        if (!code) {
+            if (errBox) {
+                errBox.textContent = 'Please enter the 6-digit code from your authenticator app.';
+                errBox.classList.remove('d-none');
+            }
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/security/2fa/activate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': adminCsrfToken
+                },
+                body: JSON.stringify({ totp_code: code })
+            });
+            const result = await res.json();
+            if (res.ok && result.status === 'success') {
+                playSound('success');
+                showToast('2FA Security Successfully Activated!', 'success');
+                close2faModal();
+                await loadAdminSecurityData();
+            } else {
+                playSound('error');
+                if (errBox) {
+                    errBox.textContent = result.error || 'Invalid 2FA code. Please try again.';
+                    errBox.classList.remove('d-none');
+                }
+            }
+        } catch (err) {
+            playSound('error');
+            if (errBox) {
+                errBox.textContent = 'Network error verifying code.';
+                errBox.classList.remove('d-none');
+            }
+        }
+    });
+}
+
+if (adm2faDisableConfirmBtn) {
+    adm2faDisableConfirmBtn.addEventListener('click', async () => {
+        const input = document.getElementById('adm-2fa-disable-code');
+        const code_or_password = input ? input.value.trim() : '';
+        const errBox = document.getElementById('adm-2fa-disable-error');
+        if (!code_or_password) {
+            if (errBox) {
+                errBox.textContent = 'Please enter your current 2FA code or password to confirm.';
+                errBox.classList.remove('d-none');
+            }
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/security/2fa/disable', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': adminCsrfToken
+                },
+                body: JSON.stringify({ code_or_password })
+            });
+            const result = await res.json();
+            if (res.ok && result.status === 'success') {
+                playSound('success');
+                showToast('Two-Factor Authentication Disabled.', 'info');
+                close2faModal();
+                await loadAdminSecurityData();
+            } else {
+                playSound('error');
+                if (errBox) {
+                    errBox.textContent = result.error || 'Failed to disable 2FA.';
+                    errBox.classList.remove('d-none');
+                }
+            }
+        } catch (err) {
+            playSound('error');
+            if (errBox) {
+                errBox.textContent = 'Network error disabling 2FA.';
+                errBox.classList.remove('d-none');
+            }
+        }
+    });
 }

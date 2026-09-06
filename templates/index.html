@@ -6,7 +6,7 @@
     <title>BlockTree Editorial - Spatial Newsletter & Branching Discourse</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.5">
     <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -771,6 +771,16 @@
                 <input type="password" id="admin-pass-input" placeholder="••••••••••••" autocomplete="current-password" required>
             </div>
 
+            <!-- Anti-Bot Automated Honeypot Trap (Hidden from humans) -->
+            <input type="text" name="hp_sec_token" id="admin-hp-token" class="hp-trap" tabindex="-1" autocomplete="off" style="position: absolute; left: -9999px; opacity: 0; width: 0; height: 0; pointer-events: none;">
+
+            <!-- Dynamic 2FA / TOTP Authenticator Input (Shown when MFA challenge triggers) -->
+            <div class="input-group d-none" id="admin-totp-group">
+                <label><i class="bi bi-shield-check text-cyan"></i> 2FA Authenticator Code / Backup Key:</label>
+                <input type="text" id="admin-totp-input" placeholder="6-digit TOTP or 8-char backup key" autocomplete="one-time-code" maxlength="12">
+                <span class="dim-text" style="font-size: 11px;">Dynamic 6-digit code from Google Authenticator or emergency backup key</span>
+            </div>
+
             <div class="btn-group">
                 <button type="button" id="admin-login-cancel-btn" class="btn-secondary">CANCEL</button>
                 <button type="submit" id="admin-login-submit-btn" class="btn-primary btn-gold">
@@ -951,21 +961,81 @@
 
         <!-- TAB 3: Security & Audit Telemetry -->
         <div id="adm-tab-security" class="admin-tab-panel d-none">
-            <div class="security-grid">
+            <!-- 2FA & Hardening Controls Banner -->
+            <div class="sec-banner-card mb-3">
+                <div class="sec-banner-info">
+                    <div class="sec-banner-icon"><i class="bi bi-shield-lock-fill text-gold"></i></div>
+                    <div>
+                        <h3 class="sec-banner-title">Two-Factor Authentication (RFC 6238 TOTP)</h3>
+                        <p class="sec-banner-sub">Protect your administrative account with dynamic 30-second time-based authenticator codes and one-time emergency recovery keys.</p>
+                    </div>
+                </div>
+                <div class="sec-banner-action">
+                    <span id="adm-2fa-badge" class="badge-pill badge-danger"><i class="bi bi-x-circle"></i> Disabled</span>
+                    <button type="button" id="adm-toggle-2fa-btn" class="btn-primary btn-sm btn-cyan">
+                        <i class="bi bi-qr-code-scan"></i> Configure 2FA
+                    </button>
+                </div>
+            </div>
+
+            <!-- Defense-in-Depth Architecture Grid -->
+            <div class="security-grid mb-4">
                 <div class="sec-card">
-                    <h4><i class="bi bi-shield-check text-green"></i> System Protection Active</h4>
-                    <p>Brute-force protection algorithm is actively monitoring authentication endpoints. Accounts undergo automatic 15-minute lockouts upon 5 failed attempts.</p>
-                    <div class="sec-status-pill"><span class="live-dot-green"></span> Rate Limiter: ARMED & RUNNING</div>
+                    <h4><i class="bi bi-shield-shaded text-cyan"></i> SQLi Boundary Shield</h4>
+                    <p>Pre-driver strict regex whitelist (<code>^[a-zA-Z0-9_]{3,32}$</code>) and parameterized queries immediately discard malicious quotes, dashes, unions, and semicolons.</p>
+                    <div class="sec-status-pill"><span class="live-dot-cyan"></span> Boundary Guard: ZERO-TOLERANCE</div>
                 </div>
                 <div class="sec-card">
-                    <h4><i class="bi bi-lock-fill text-gold"></i> Session Integrity</h4>
-                    <p>Session tokens are cryptographically randomized (32-byte hex) and bound to HTTPOnly cookies to protect against XSS and session hijacking.</p>
-                    <div class="sec-status-pill"><span class="live-dot-gold"></span> Encryption: PBKDF2-SHA256 (600,000 rounds)</div>
+                    <h4><i class="bi bi-stopwatch text-gold"></i> Timing Attack Immunity</h4>
+                    <p>Constant-time PBKDF2-SHA256 (600,000 iterations) dummy computation for non-existent users guarantees identical ~200ms latency, preventing username enumeration.</p>
+                    <div class="sec-status-pill"><span class="live-dot-gold"></span> Latency Equalizer: ACTIVE</div>
                 </div>
                 <div class="sec-card">
-                    <h4><i class="bi bi-eye-slash-fill text-cyan"></i> Instant Content Revocation</h4>
-                    <p>When an article is revoked, it is immediately excluded from the spatial matrix rendering engine, API feed, and reader drawer for all regular users.</p>
-                    <div class="sec-status-pill"><span class="live-dot-cyan"></span> Realtime Filter: ZERO EXPOSURE</div>
+                    <h4><i class="bi bi-robot text-magenta"></i> Bot Honeypot Trap</h4>
+                    <p>Invisible form trap fields silently drop automated credential stuffing and bot spiders without revealing server intelligence or consuming database cycles.</p>
+                    <div class="sec-status-pill"><span class="live-dot-magenta"></span> Honeypot: ARMED</div>
+                </div>
+                <div class="sec-card">
+                    <h4><i class="bi bi-database-lock text-green"></i> Persistent Lockouts</h4>
+                    <p>Dedicated SQLite table <code>admin_lockouts</code> tracks brute-force attempts across server reboots, imposing 15-minute lockouts after 5 consecutive failures.</p>
+                    <div class="sec-status-pill"><span class="live-dot-green"></span> DB Enforcer: PERSISTED</div>
+                </div>
+                <div class="sec-card">
+                    <h4><i class="bi bi-fingerprint text-cyan"></i> Device Fingerprint & CSRF</h4>
+                    <p>Sessions are cryptographically bound to client IP + User-Agent HMAC hashes. All state-modifying requests require double-submit <code>X-CSRF-Token</code> validation.</p>
+                    <div class="sec-status-pill"><span class="live-dot-cyan"></span> HMAC Fingerprint: BOUND</div>
+                </div>
+                <div class="sec-card">
+                    <h4><i class="bi bi-eye-slash-fill text-gold"></i> Instant Revocation</h4>
+                    <p>Flagged or vulgar articles are immediately banished from spatial matrix coordinates, search indexes, and user drawers with zero public footprint.</p>
+                    <div class="sec-status-pill"><span class="live-dot-gold"></span> Matrix Guard: REAL-TIME</div>
+                </div>
+            </div>
+
+            <!-- Live Security Audit Telemetry -->
+            <div class="sec-audit-section">
+                <div class="d-flex justify-between align-center mb-2">
+                    <h3 class="sec-section-title"><i class="bi bi-journal-code text-cyan"></i> Immutable Security Audit Telemetry</h3>
+                    <button type="button" id="adm-refresh-audit-btn" class="btn-subtle btn-xs">
+                        <i class="bi bi-arrow-repeat"></i> Refresh Telemetry
+                    </button>
+                </div>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 140px;">Timestamp (UTC)</th>
+                                <th style="width: 150px;">Event Type</th>
+                                <th style="width: 90px;">Status</th>
+                                <th style="width: 100px;">User</th>
+                                <th style="width: 120px;">Client IP</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-audit-tbody">
+                            <tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-arrow-repeat spin"></i> Loading security telemetry...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1053,12 +1123,68 @@
         </form>
     </div>
 
+    <!-- 6. 2FA Configuration Modal -->
+    <div id="admin-2fa-modal" class="cyber-modal hud-glass d-none" style="width: 560px; max-width: 95vw;">
+        <div class="modal-header">
+            <h2><i class="bi bi-shield-lock-fill text-gold"></i> Two-Factor Authenticator Setup</h2>
+            <button type="button" id="admin-2fa-close-x" class="modal-x">&times;</button>
+        </div>
+        <div class="p-3">
+            <div id="adm-2fa-step-setup">
+                <p class="dim-text mb-2" style="font-size: 12px;">Add this account to Google Authenticator, Authy, or 1Password by entering the Base32 secret below:</p>
+                <div class="secret-display-box mb-3">
+                    <div class="dim-text text-xs mb-1">BASE32 SECRET KEY:</div>
+                    <div class="d-flex align-center gap-2">
+                        <code id="adm-2fa-secret-code" class="sec-code-text">LOADING...</code>
+                        <button type="button" id="adm-copy-secret-btn" class="btn-subtle btn-xs"><i class="bi bi-clipboard"></i> Copy</button>
+                    </div>
+                </div>
+
+                <div class="backup-codes-box mb-3">
+                    <div class="dim-text text-xs mb-1"><i class="bi bi-key-fill text-gold"></i> EMERGENCY RECOVERY CODES (Save these safely):</div>
+                    <div id="adm-2fa-backup-codes-list" class="backup-codes-grid">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="input-group mb-3">
+                    <label>Enter 6-Digit Authenticator Code to Verify & Activate:</label>
+                    <input type="text" id="adm-2fa-confirm-input" placeholder="123456" maxlength="6" autocomplete="off" style="text-align: center; font-size: 18px; letter-spacing: 4px; font-family: monospace;">
+                </div>
+
+                <div id="adm-2fa-error" class="admin-error-box d-none mb-2"></div>
+
+                <div class="btn-group">
+                    <button type="button" id="adm-2fa-cancel-btn" class="btn-secondary">CANCEL</button>
+                    <button type="button" id="adm-2fa-activate-btn" class="btn-primary btn-gold">
+                        <i class="bi bi-shield-check"></i> ACTIVATE 2FA
+                    </button>
+                </div>
+            </div>
+
+            <div id="adm-2fa-step-disable" class="d-none">
+                <p class="text-danger mb-3" style="font-size: 12px;"><i class="bi bi-exclamation-triangle-fill"></i> Warning: Disabling 2FA removes the extra security layer from your administrative account.</p>
+                <div class="input-group mb-3">
+                    <label>Enter Current 2FA Code or Admin Password to confirm disable:</label>
+                    <input type="password" id="adm-2fa-disable-code" placeholder="Current 2FA code or password">
+                </div>
+                <div id="adm-2fa-disable-error" class="admin-error-box d-none mb-2"></div>
+                <div class="btn-group">
+                    <button type="button" id="adm-2fa-disable-cancel-btn" class="btn-secondary">CANCEL</button>
+                    <button type="button" id="adm-2fa-disable-confirm-btn" class="btn-primary" style="background: var(--magenta); border-color: var(--magenta);">
+                        <i class="bi bi-shield-slash"></i> CONFIRM DISABLE 2FA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="hud-toast d-none">
         <i class="bi bi-info-circle-fill" id="toast-icon"></i>
         <span id="toast-message">Notification</span>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.4"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.5"></script>
 </body>
 </html>
