@@ -720,6 +720,284 @@ formIsSeries.addEventListener('change', () => {
     }
 });
 
+// ==========================================================================
+// Microsoft Word Studio Mode & Formatting Toolbar System
+// ==========================================================================
+const composerFullscreenBtn = document.getElementById('composer-fullscreen-btn');
+const fsIcon = document.getElementById('fs-icon');
+const studioBadge = document.getElementById('composer-studio-badge');
+const contentTextarea = document.getElementById('form-content');
+const wordCountElem = document.getElementById('editor-word-count');
+const charCountElem = document.getElementById('editor-char-count');
+const readTimeElem = document.getElementById('editor-read-time');
+const livePreviewPane = document.getElementById('composer-live-preview');
+const previewBody = document.getElementById('composer-preview-body');
+const btnTogglePreview = document.getElementById('btn-toggle-preview');
+
+// Fullscreen Studio Mode Toggle
+function toggleFullscreenStudio() {
+    playSound('click');
+    const isFs = composerModal.classList.toggle('fullscreen-studio');
+    if (isFs) {
+        fsIcon.className = 'bi bi-fullscreen-exit';
+        composerFullscreenBtn.title = 'Exit Word Studio (Restore)';
+        if (studioBadge) studioBadge.classList.remove('d-none');
+        showToast("🖥️ Word Studio Mode active - Distraction-free writing canvas");
+    } else {
+        fsIcon.className = 'bi bi-arrows-fullscreen';
+        composerFullscreenBtn.title = 'Toggle Word Studio (Fullscreen Mode)';
+        if (studioBadge) studioBadge.classList.add('d-none');
+    }
+}
+
+if (composerFullscreenBtn) {
+    composerFullscreenBtn.addEventListener('click', toggleFullscreenStudio);
+}
+
+// Live Document Statistics (Word count, Character count, Estimated read time)
+function updateLiveStats() {
+    if (!contentTextarea) return;
+    const text = contentTextarea.value || '';
+    const trimmed = text.trim();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
+    const chars = text.length;
+    const readMin = Math.max(1, Math.ceil(words / 200));
+
+    if (wordCountElem) wordCountElem.innerHTML = `<i class="bi bi-file-earmark-text"></i> <strong>${words}</strong> words`;
+    if (charCountElem) charCountElem.innerHTML = `<strong>${chars}</strong> characters`;
+    if (readTimeElem) readTimeElem.innerHTML = `<i class="bi bi-clock"></i> ${readMin} min read`;
+
+    // Live preview update
+    if (livePreviewPane && !livePreviewPane.classList.contains('d-none') && previewBody) {
+        if (typeof marked !== 'undefined') {
+            previewBody.innerHTML = marked.parse(text || '*Preview your formatted story here...*');
+        } else {
+            previewBody.innerHTML = `<p>${text}</p>`;
+        }
+    }
+}
+
+if (contentTextarea) {
+    contentTextarea.addEventListener('input', updateLiveStats);
+}
+
+// Live Split Preview Toggle
+if (btnTogglePreview) {
+    btnTogglePreview.addEventListener('click', () => {
+        playSound('click');
+        const isHidden = livePreviewPane.classList.toggle('d-none');
+        btnTogglePreview.classList.toggle('active', !isHidden);
+        if (!isHidden) {
+            updateLiveStats();
+        }
+    });
+}
+
+// Selection-preserving Word Formatting Engine
+function applyFormatting(action) {
+    if (!contentTextarea) return;
+    playSound('click');
+    const start = contentTextarea.selectionStart;
+    const end = contentTextarea.selectionEnd;
+    const fullText = contentTextarea.value;
+    const selectedText = fullText.substring(start, end);
+    
+    let replacement = '';
+    let selStartOffset = 0;
+    let selEndOffset = 0;
+    let selectAfter = false;
+
+    switch (action) {
+        case 'bold':
+            if (selectedText.startsWith('**') && selectedText.endsWith('**') && selectedText.length >= 4) {
+                replacement = selectedText.slice(2, -2);
+            } else {
+                replacement = `**${selectedText || 'bold text'}**`;
+                if (!selectedText) { selStartOffset = 2; selEndOffset = replacement.length - 2; selectAfter = true; }
+            }
+            break;
+        case 'italic':
+            if (selectedText.startsWith('*') && selectedText.endsWith('*') && selectedText.length >= 2) {
+                replacement = selectedText.slice(1, -1);
+            } else {
+                replacement = `*${selectedText || 'italic text'}*`;
+                if (!selectedText) { selStartOffset = 1; selEndOffset = replacement.length - 1; selectAfter = true; }
+            }
+            break;
+        case 'underline':
+            if (selectedText.startsWith('<u>') && selectedText.endsWith('</u>') && selectedText.length >= 7) {
+                replacement = selectedText.slice(3, -4);
+            } else {
+                replacement = `<u>${selectedText || 'underlined text'}</u>`;
+                if (!selectedText) { selStartOffset = 3; selEndOffset = replacement.length - 4; selectAfter = true; }
+            }
+            break;
+        case 'strike':
+            if (selectedText.startsWith('~~') && selectedText.endsWith('~~') && selectedText.length >= 4) {
+                replacement = selectedText.slice(2, -2);
+            } else {
+                replacement = `~~${selectedText || 'strikethrough text'}~~`;
+                if (!selectedText) { selStartOffset = 2; selEndOffset = replacement.length - 2; selectAfter = true; }
+            }
+            break;
+        case 'h1':
+            replacement = `\n# ${selectedText || 'Heading 1'}\n`;
+            break;
+        case 'h2':
+            replacement = `\n## ${selectedText || 'Heading 2'}\n`;
+            break;
+        case 'h3':
+            replacement = `\n### ${selectedText || 'Heading 3'}\n`;
+            break;
+        case 'quote':
+            replacement = `\n> ${selectedText || 'Quote text'}\n`;
+            break;
+        case 'code':
+            if (selectedText.includes('\n')) {
+                replacement = `\n\`\`\`\n${selectedText || 'code block'}\n\`\`\`\n`;
+            } else {
+                replacement = `\`${selectedText || 'code'}\``;
+            }
+            break;
+        case 'ul':
+            if (selectedText) {
+                replacement = selectedText.split('\n').map(l => `- ${l}`).join('\n');
+            } else {
+                replacement = `\n- Item 1\n- Item 2\n- Item 3\n`;
+            }
+            break;
+        case 'ol':
+            if (selectedText) {
+                replacement = selectedText.split('\n').map((l, idx) => `${idx + 1}. ${l}`).join('\n');
+            } else {
+                replacement = `\n1. Point 1\n2. Point 2\n3. Point 3\n`;
+            }
+            break;
+        case 'hr':
+            replacement = `\n\n---\n\n`;
+            break;
+        case 'link':
+            const url = prompt("Enter hyperlink URL (e.g. https://example.com):", "https://");
+            if (url) {
+                const label = selectedText || "link title";
+                replacement = `[${label}](${url})`;
+            } else {
+                return;
+            }
+            break;
+        default:
+            return;
+    }
+
+    contentTextarea.focus();
+    contentTextarea.setRangeText(replacement, start, end, 'end');
+    if (selectAfter) {
+        contentTextarea.setSelectionRange(start + selStartOffset, start + selEndOffset);
+    }
+    contentTextarea.dispatchEvent(new Event('input'));
+}
+
+// Bind all toolbar buttons
+document.querySelectorAll('.word-toolbar .tb-btn[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const action = btn.getAttribute('data-action');
+        if (action) applyFormatting(action);
+    });
+});
+
+// Keyboard shortcuts inside textarea (Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+K)
+if (contentTextarea) {
+    contentTextarea.addEventListener('keydown', (e) => {
+        const isMod = e.ctrlKey || e.metaKey;
+        if (isMod && e.key.toLowerCase() === 'b') {
+            e.preventDefault();
+            applyFormatting('bold');
+        } else if (isMod && e.key.toLowerCase() === 'i') {
+            e.preventDefault();
+            applyFormatting('italic');
+        } else if (isMod && e.key.toLowerCase() === 'u') {
+            e.preventDefault();
+            applyFormatting('underline');
+        } else if (isMod && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            applyFormatting('link');
+        }
+    });
+}
+
+// ==========================================================================
+// Interactive Emoji Picker System
+// ==========================================================================
+const emojiToggleBtn = document.getElementById('btn-toggle-emoji');
+const emojiDropdown = document.getElementById('emoji-picker-dropdown');
+const emojiGrid = document.getElementById('emoji-grid');
+const emojiTabBtns = document.querySelectorAll('.emoji-tab-btn');
+
+const EMOJI_SETS = {
+    editorial: ['📰', '🖋️', '📝', '💡', '📜', '📡', '🌐', '📢', '🔍', '📖', '📊', '📈', '📌', '🎯', '🏷️', '🔖', '📑', '🗞️', '🔬', '🧠'],
+    reactions: ['👏', '❤️', '🔥', '🚀', '💎', '👑', '⭐', '💯', '👍', '🙌', '🎉', '🥂', '🏆', '✨', '⚡', '🤩', '💪', '🤝', '🎯', '🙏'],
+    faces: ['😀', '😃', '😄', '😁', '😎', '🤔', '🧐', '🤩', '🤖', '🧙', '🤯', '🥳', '😇', '🤓', '🤠', '🤐', '😮', '😴', '😏', '🫡'],
+    tech: ['⚡', '💻', '🖥️', '🔗', '🔒', '🗝️', '⚙️', '🛰️', '🔋', '💾', '🧬', '🕹️', '🔌', '📡', '🌐', '🛡️', '🤖', '📦', '📱', '⌨️'],
+    symbols: ['✦', '❖', '✹', '➔', '➜', '↳', '•', '—', '▪', '★', '⬢', '🟢', '🔴', '🟡', '🔵', '✔️', '✖️', '⚠️', '💎', '♾️']
+};
+
+let currentEmojiTab = 'editorial';
+
+function renderEmojis(category) {
+    currentEmojiTab = category;
+    const emojis = EMOJI_SETS[category] || EMOJI_SETS.editorial;
+    if (emojiGrid) {
+        emojiGrid.innerHTML = emojis.map(em => `<button type="button" class="emoji-item" data-emoji="${em}">${em}</button>`).join('');
+        emojiGrid.querySelectorAll('.emoji-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const emoji = item.getAttribute('data-emoji');
+                insertEmoji(emoji);
+            });
+        });
+    }
+}
+
+function insertEmoji(emoji) {
+    if (!contentTextarea) return;
+    playSound('click');
+    const start = contentTextarea.selectionStart;
+    const end = contentTextarea.selectionEnd;
+    contentTextarea.setRangeText(emoji, start, end, 'end');
+    contentTextarea.focus();
+    contentTextarea.dispatchEvent(new Event('input'));
+    if (emojiDropdown) emojiDropdown.classList.add('d-none');
+}
+
+if (emojiToggleBtn && emojiDropdown) {
+    emojiToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const isHidden = emojiDropdown.classList.toggle('d-none');
+        if (!isHidden) {
+            renderEmojis(currentEmojiTab);
+        }
+    });
+
+    emojiTabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playSound('click');
+            emojiTabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const tab = btn.getAttribute('data-tab');
+            renderEmojis(tab);
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (emojiToggleBtn && !emojiToggleBtn.contains(e.target) && emojiDropdown && !emojiDropdown.contains(e.target)) {
+            emojiDropdown.classList.add('d-none');
+        }
+    });
+}
+
 function openComposer(parentId = null, parentTitle = null, parentAuthor = null) {
     playSound('click');
     document.getElementById('form-parent-id').value = parentId || '';
@@ -764,12 +1042,14 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
     
     overlay.style.display = 'block';
     composerModal.classList.remove('d-none');
+    updateLiveStats();
     document.getElementById('form-title').focus();
 }
 
 function closeComposer() {
     overlay.style.display = 'none';
     composerModal.classList.add('d-none');
+    if (emojiDropdown) emojiDropdown.classList.add('d-none');
 }
 
 composerCloseX.addEventListener('click', closeComposer);
@@ -1181,7 +1461,16 @@ async function checkDeepLink() {
 
 // Keyboard Navigation
 document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11' && composerModal && !composerModal.classList.contains('d-none')) {
+        e.preventDefault();
+        toggleFullscreenStudio();
+        return;
+    }
     if (e.key === 'Escape') {
+        if (composerModal && composerModal.classList.contains('fullscreen-studio')) {
+            toggleFullscreenStudio();
+            return;
+        }
         closeComposer();
         closeRegisterModal();
         closeLoginModal();

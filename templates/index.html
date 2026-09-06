@@ -249,12 +249,20 @@
         </div>
     </div>
 
-    <!-- Article & Branch Reply Composer Modal -->
+    <!-- Article & Branch Reply Composer Modal (Word Studio Mode) -->
     <div id="overlay"></div>
     <div id="composer-modal" class="cyber-modal hud-glass d-none">
         <div class="modal-header">
-            <h2 id="composer-modal-title"><i class="bi bi-pen-fill text-cyan"></i> Write Article</h2>
-            <button id="composer-close-x" class="modal-x">&times;</button>
+            <div class="modal-title-wrap">
+                <h2 id="composer-modal-title"><i class="bi bi-pen-fill text-cyan"></i> Write Article</h2>
+                <span id="composer-studio-badge" class="studio-badge d-none"><i class="bi bi-file-earmark-richtext"></i> Word Studio Mode</span>
+            </div>
+            <div class="modal-header-actions">
+                <button type="button" id="composer-fullscreen-btn" class="modal-action-btn" title="Toggle Word Studio (Fullscreen Mode)">
+                    <i class="bi bi-arrows-fullscreen" id="fs-icon"></i>
+                </button>
+                <button id="composer-close-x" class="modal-x" title="Close">&times;</button>
+            </div>
         </div>
 
         <!-- Verified Author Identity Banner -->
@@ -319,7 +327,7 @@
             <!-- PHOTO ATTACHMENT SECTION (File Upload or Direct URL with Live Preview) -->
             <div class="photo-attach-box">
                 <div class="photo-attach-header">
-                    <label><i class="bi bi-image text-cyan"></i> Attach Cover Photo (Shown on Card & Reader):</label>
+                    <label><i class="bi bi-image text-cyan"></i> Attach Cover Photo (Exact photo will be displayed):</label>
                     <div class="photo-tab-pills">
                         <button type="button" id="tab-photo-file" class="photo-tab active"><i class="bi bi-upload"></i> Upload File</button>
                         <button type="button" id="tab-photo-url" class="photo-tab"><i class="bi bi-link-45deg"></i> Image URL</button>
@@ -380,12 +388,94 @@
                 </div>
             </div>
 
-            <div class="input-group">
-                <div class="label-with-hint">
-                    <label>Article Body (Markdown Supported) *:</label>
-                    <span class="input-hint">Use ## Headings, > Quotes, `code`, **bold**, - lists</span>
+            <!-- MICROSOFT WORD-STYLE WRITING STUDIO TOOLBAR -->
+            <div class="word-editor-container">
+                <div class="word-toolbar hud-glass">
+                    <!-- Text Styling: Bold, Italic, Underline, Strikethrough -->
+                    <div class="tb-group" title="Text Formatting">
+                        <button type="button" class="tb-btn" data-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                        <button type="button" class="tb-btn" data-action="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                        <button type="button" class="tb-btn" data-action="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+                        <button type="button" class="tb-btn" data-action="strike" title="Strikethrough"><s>S</s></button>
+                    </div>
+
+                    <div class="tb-sep"></div>
+
+                    <!-- Headings -->
+                    <div class="tb-group" title="Headings">
+                        <button type="button" class="tb-btn tb-btn-text" data-action="h1" title="Heading 1">H1</button>
+                        <button type="button" class="tb-btn tb-btn-text" data-action="h2" title="Heading 2">H2</button>
+                        <button type="button" class="tb-btn tb-btn-text" data-action="h3" title="Heading 3">H3</button>
+                    </div>
+
+                    <div class="tb-sep"></div>
+
+                    <!-- Structures & Lists -->
+                    <div class="tb-group" title="Lists and Structure">
+                        <button type="button" class="tb-btn" data-action="quote" title="Blockquote"><i class="bi bi-quote"></i></button>
+                        <button type="button" class="tb-btn" data-action="code" title="Code Snippet / Block"><i class="bi bi-code-slash"></i></button>
+                        <button type="button" class="tb-btn" data-action="ul" title="Bulleted List"><i class="bi bi-list-ul"></i></button>
+                        <button type="button" class="tb-btn" data-action="ol" title="Numbered List"><i class="bi bi-list-ol"></i></button>
+                        <button type="button" class="tb-btn" data-action="hr" title="Horizontal Line"><i class="bi bi-hr"></i></button>
+                        <button type="button" class="tb-btn" data-action="link" title="Insert Link (Ctrl+K)"><i class="bi bi-link-45deg"></i></button>
+                    </div>
+
+                    <div class="tb-sep"></div>
+
+                    <!-- Emoji Picker Dropdown Toggle -->
+                    <div class="tb-group emoji-picker-wrapper">
+                        <button type="button" id="btn-toggle-emoji" class="tb-btn tb-btn-emoji" title="Insert Emoji">
+                            <i class="bi bi-emoji-smile-fill text-gold"></i> <span>Emoji</span> <i class="bi bi-chevron-down" style="font-size: 8px;"></i>
+                        </button>
+
+                        <!-- Emoji Popover Menu -->
+                        <div id="emoji-picker-dropdown" class="emoji-picker-dropdown d-none">
+                            <div class="emoji-tabs">
+                                <button type="button" class="emoji-tab-btn active" data-tab="editorial">📰 Editorial</button>
+                                <button type="button" class="emoji-tab-btn" data-tab="reactions">👏 Reactions</button>
+                                <button type="button" class="emoji-tab-btn" data-tab="faces">😀 Faces</button>
+                                <button type="button" class="emoji-tab-btn" data-tab="tech">⚡ Tech</button>
+                                <button type="button" class="emoji-tab-btn" data-tab="symbols">✦ Icons</button>
+                            </div>
+                            <div id="emoji-grid" class="emoji-grid">
+                                <!-- Emojis populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tb-sep"></div>
+
+                    <!-- Live Preview Split Screen Toggle -->
+                    <div class="tb-group tb-group-right">
+                        <button type="button" id="btn-toggle-preview" class="tb-btn tb-btn-preview" title="Toggle Live Preview Side-by-Side">
+                            <i class="bi bi-layout-split"></i> <span>Live Preview</span>
+                        </button>
+                    </div>
                 </div>
-                <textarea id="form-content" rows="6" placeholder="Write your full story or perspective here... Supports rich markdown formatting." required></textarea>
+
+                <!-- Writing Area & Split-Preview Pane -->
+                <div class="editor-split-wrapper" id="editor-split-wrapper">
+                    <textarea id="form-content" rows="8" placeholder="Type your story, thoughts, or rebuttal here... Use the Word toolbar above for bold, underline, headings, and emojis!" required></textarea>
+                    
+                    <div id="composer-live-preview" class="composer-split-preview d-none">
+                        <div class="preview-header"><i class="bi bi-eye text-cyan"></i> Document Live Preview</div>
+                        <div id="composer-preview-body" class="reader-markdown-content preview-body-scroll"></div>
+                    </div>
+                </div>
+
+                <!-- Word Status Bar -->
+                <div class="word-status-bar">
+                    <div class="status-bar-left">
+                        <span id="editor-word-count"><i class="bi bi-file-earmark-text"></i> <strong>0</strong> words</span>
+                        <span class="status-sep">•</span>
+                        <span id="editor-char-count"><strong>0</strong> characters</span>
+                        <span class="status-sep">•</span>
+                        <span id="editor-read-time"><i class="bi bi-clock"></i> 1 min read</span>
+                    </div>
+                    <div class="status-bar-right">
+                        <span class="text-cyan"><i class="bi bi-keyboard"></i> Ctrl+B: Bold | Ctrl+U: Underline | Ctrl+I: Italic | F11: Fullscreen</span>
+                    </div>
+                </div>
             </div>
 
             <div class="btn-group">

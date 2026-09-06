@@ -1,6 +1,6 @@
 /* ==========================================================================
    BLOCKTREE EDITORIAL - Cyber-Editorial Stylesheet
-   Spatial Newsletter, Branching Discourse, Verified Authors & Series Writing
+   Spatial Newsletter, Branching Discourse, Verified Authors & Word Studio
    ========================================================================== */
 
 :root {
@@ -1223,6 +1223,12 @@ body.editorial-body {
     margin-bottom: 16px;
 }
 
+.reader-markdown-content u {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--cyan);
+}
+
 .reader-markdown-content blockquote {
     border-left: 3px solid var(--cyan);
     background: rgba(0, 243, 255, 0.05);
@@ -1413,7 +1419,7 @@ body.editorial-body {
 }
 
 /* ==========================================================================
-   Composer Modal (Photo Attachment & Series Writing)
+   Composer Modal (Photo Attachment, Series Writing & Word Studio)
    ========================================================================== */
 #overlay {
     position: fixed;
@@ -1429,30 +1435,129 @@ body.editorial-body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 620px;
+    width: 660px;
     max-width: 95vw;
-    max-height: 90vh;
+    max-height: 92vh;
     overflow-y: auto;
-    padding: 24px;
+    padding: 22px 24px;
     z-index: 220;
     border: 1px solid var(--cyan);
     box-shadow: 0 0 40px rgba(0, 243, 255, 0.3);
+    transition: width 0.25s ease, height 0.25s ease;
+}
+
+/* FULLSCREEN WORD STUDIO MODE */
+.cyber-modal.fullscreen-studio {
+    position: fixed;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 16px 32px 20px !important;
+    z-index: 250 !important;
+    display: flex;
+    flex-direction: column;
+    background: rgba(5, 9, 20, 0.98);
+}
+
+.cyber-modal.fullscreen-studio form#article-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.cyber-modal.fullscreen-studio .word-editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+}
+
+.cyber-modal.fullscreen-studio .editor-split-wrapper {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    min-height: 380px;
+}
+
+.cyber-modal.fullscreen-studio textarea#form-content {
+    flex: 1;
+    height: 100%;
+    min-height: 380px;
+    font-size: 15px;
+    line-height: 1.75;
+}
+
+.cyber-modal.fullscreen-studio .composer-split-preview {
+    flex: 1;
+    height: 100%;
+    min-height: 380px;
+    max-height: none;
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 14px;
-    padding-bottom: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .modal-header h2 {
     font-family: var(--font-heading);
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 700;
     color: #fff;
+}
+
+.studio-badge {
+    background: rgba(0, 243, 255, 0.15);
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-size: 9px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    border-radius: 12px;
+    padding: 2px 7px;
+}
+
+.modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    color: var(--cyan);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s ease;
+}
+
+.modal-action-btn:hover {
+    background: var(--cyan);
+    color: #000;
 }
 
 .modal-sub {
@@ -1466,9 +1571,14 @@ body.editorial-body {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    font-size: 26px;
+    font-size: 24px;
     cursor: pointer;
     line-height: 1;
+    padding: 0 4px;
+}
+
+.modal-x:hover {
+    color: #fff;
 }
 
 /* Author Status Banners */
@@ -1476,9 +1586,9 @@ body.editorial-body {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
+    padding: 7px 12px;
     border-radius: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     font-size: 11px;
 }
 
@@ -1510,8 +1620,8 @@ body.editorial-body {
     background: rgba(0, 243, 255, 0.08);
     border: 1px solid rgba(0, 243, 255, 0.3);
     border-radius: 8px;
-    padding: 10px 14px;
-    margin-bottom: 14px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1533,11 +1643,11 @@ body.editorial-body {
 .form-row-two {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 12px;
 }
 
 .input-group {
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .input-group label {
@@ -1545,14 +1655,14 @@ body.editorial-body {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .label-with-hint {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .label-with-hint label {
@@ -1570,13 +1680,12 @@ body.editorial-body {
 .input-group input[type="email"],
 .input-group input[type="password"],
 .input-group input[type="number"],
-.input-group textarea,
 .cyber-input {
     width: 100%;
     background: rgba(4, 8, 18, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 7px 11px;
     color: #fff;
     font-family: var(--font-body);
     font-size: 12px;
@@ -1586,7 +1695,6 @@ body.editorial-body {
 
 .cyber-select:focus,
 .input-group input:focus,
-.input-group textarea:focus,
 .cyber-input:focus {
     border-color: var(--cyan);
     box-shadow: 0 0 12px var(--cyan-glow);
@@ -1602,19 +1710,19 @@ body.editorial-body {
     background: rgba(0, 243, 255, 0.04);
     border: 1px solid rgba(0, 243, 255, 0.2);
     border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 14px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
 }
 
 .photo-attach-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .photo-attach-header label {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #fff;
     display: flex;
@@ -1631,7 +1739,7 @@ body.editorial-body {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: var(--text-muted);
-    font-size: 9.5px;
+    font-size: 9px;
     font-family: var(--font-heading);
     font-weight: 600;
     border-radius: 6px;
@@ -1648,14 +1756,14 @@ body.editorial-body {
 
 .file-drop-area {
     position: relative;
-    border: 2px dashed rgba(0, 243, 255, 0.25);
+    border: 1.5px dashed rgba(0, 243, 255, 0.25);
     border-radius: 8px;
-    padding: 18px 12px;
+    padding: 12px;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
     background: rgba(4, 8, 18, 0.6);
@@ -1667,7 +1775,7 @@ body.editorial-body {
 }
 
 .drop-text {
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--text-secondary);
 }
 
@@ -1679,7 +1787,7 @@ body.editorial-body {
 }
 
 .photo-preview-wrap {
-    margin-top: 10px;
+    margin-top: 8px;
 }
 
 .photo-preview-box {
@@ -1689,12 +1797,12 @@ body.editorial-body {
     background: rgba(0, 0, 0, 0.6);
     border: 1px solid var(--cyan);
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 6px 10px;
 }
 
 .composer-preview-thumb {
-    width: 60px;
-    height: 40px;
+    width: 50px;
+    height: 35px;
     object-fit: cover;
     border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1705,11 +1813,11 @@ body.editorial-body {
     flex-direction: column;
     gap: 2px;
     flex: 1;
-    margin-left: 12px;
+    margin-left: 10px;
 }
 
 .preview-badge {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 700;
     color: var(--cyan);
     display: flex;
@@ -1718,10 +1826,10 @@ body.editorial-body {
 }
 
 .preview-name {
-    font-size: 10px;
+    font-size: 9.5px;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    max-width: 250px;
+    max-width: 260px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1732,8 +1840,8 @@ body.editorial-body {
     border: 1px solid var(--magenta);
     color: var(--magenta);
     border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 10px;
+    padding: 3px 7px;
+    font-size: 9.5px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1749,8 +1857,8 @@ body.editorial-body {
     background: rgba(255, 215, 0, 0.04);
     border: 1px solid rgba(255, 215, 0, 0.2);
     border-radius: 10px;
-    padding: 10px 12px;
-    margin-bottom: 14px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
 }
 
 .custom-checkbox {
@@ -1768,15 +1876,266 @@ body.editorial-body {
 }
 
 .series-inputs-panel {
-    margin-top: 10px;
-    padding-top: 10px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid rgba(255, 215, 0, 0.15);
+}
+
+/* ==========================================================================
+   MICROSOFT WORD-STYLE WRITING STUDIO TOOLBAR & EDITOR
+   ========================================================================== */
+.word-editor-container {
+    border: 1px solid rgba(0, 243, 255, 0.25);
+    border-radius: 8px;
+    overflow: visible;
+    margin-bottom: 12px;
+    background: rgba(4, 8, 18, 0.85);
+}
+
+.word-toolbar {
+    background: rgba(13, 22, 44, 0.95);
+    border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-radius: 8px 8px 0 0;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 50;
+}
+
+.tb-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tb-group-right {
+    margin-left: auto;
+}
+
+.tb-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #cbd5e1;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.tb-btn:hover {
+    background: rgba(0, 243, 255, 0.15);
+    border-color: rgba(0, 243, 255, 0.4);
+    color: #fff;
+}
+
+.tb-btn.active {
+    background: var(--cyan);
+    color: #000;
+}
+
+.tb-btn-text {
+    width: auto;
+    padding: 0 6px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.tb-sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 4px;
+}
+
+.tb-btn-emoji {
+    width: auto;
+    padding: 0 8px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 10.5px;
+    color: var(--gold);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    gap: 4px;
+}
+
+.tb-btn-emoji:hover {
+    background: rgba(255, 215, 0, 0.15);
+    border-color: var(--gold);
+    color: #fff;
+}
+
+.tb-btn-preview {
+    width: auto;
+    padding: 0 8px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 10.5px;
+    color: var(--cyan);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    gap: 4px;
+}
+
+.tb-btn-preview:hover {
+    background: rgba(0, 243, 255, 0.15);
+    border-color: var(--cyan);
+    color: #fff;
+}
+
+/* Emoji Picker Dropdown */
+.emoji-picker-wrapper {
+    position: relative;
+}
+
+.emoji-picker-dropdown {
+    position: absolute;
+    top: 36px;
+    left: 0;
+    width: 290px;
+    background: rgba(8, 15, 31, 0.98);
+    border: 1px solid var(--gold);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+    z-index: 300;
+    padding: 8px;
+}
+
+.emoji-tabs {
+    display: flex;
+    gap: 3px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+}
+
+.emoji-tab-btn {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 5px;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.emoji-tab-btn.active {
+    background: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.emoji-item {
+    font-size: 18px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.emoji-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.2);
+}
+
+/* Editor Split Wrapper */
+.editor-split-wrapper {
+    display: flex;
+    width: 100%;
+}
+
+textarea#form-content {
+    width: 100%;
+    background: rgba(3, 7, 16, 0.95);
+    border: none;
+    padding: 12px 14px;
+    color: #f1f5f9;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    line-height: 1.65;
+    outline: none;
+    resize: vertical;
+    min-height: 160px;
+}
+
+.composer-split-preview {
+    flex: 1;
+    background: rgba(6, 11, 23, 0.98);
+    border-left: 1px solid rgba(0, 243, 255, 0.25);
+    padding: 12px 16px;
+    overflow-y: auto;
+    max-height: 280px;
+}
+
+.preview-header {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+}
+
+/* Word Status Bar */
+.word-status-bar {
+    background: rgba(9, 16, 33, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 5px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.status-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-bar-left strong {
+    color: #fff;
+}
+
+.status-sep {
+    opacity: 0.4;
+}
+
+.status-bar-right {
+    font-size: 9.5px;
 }
 
 .btn-group {
     display: flex;
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 14px;
 }
 
 .btn-secondary {
