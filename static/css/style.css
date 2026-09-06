@@ -204,35 +204,6 @@ body {
     gap: 8px;
 }
 
-.pill-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: 38px;
-    padding: 0 12px;
-    border-radius: 999px;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.pill-btn:hover {
-    border-color: var(--gold);
-    box-shadow: 0 0 15px var(--gold-glow);
-}
-
-.badge-mini-gold {
-    font-size: 10px;
-    background: rgba(255, 215, 0, 0.2);
-    color: var(--gold);
-    border: 1px solid var(--gold);
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-weight: 700;
-}
-
 .pill-icon-btn {
     width: 38px;
     height: 38px;
@@ -247,6 +218,119 @@ body {
 
 .pill-icon-btn:hover {
     box-shadow: 0 0 12px var(--cyan);
+}
+
+/* PERMANENT LIVE LEADERBOARD (Top-Right, Always Open) */
+#leaderboard {
+    position: fixed;
+    top: 58px;
+    right: 16px;
+    width: 220px;
+    max-height: 250px;
+    padding: 10px 12px;
+    z-index: 105;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 15px rgba(255, 215, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+}
+
+.leader-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.25);
+}
+
+.leader-header .brand-title {
+    font-size: 10.5px;
+    color: var(--gold);
+    text-shadow: 0 0 6px var(--gold);
+}
+
+.leader-live-tag {
+    font-size: 8px;
+    font-weight: 800;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.06em;
+}
+
+.live-dot-gold {
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #ffd700;
+    animation: live-blink 1.2s infinite ease-in-out;
+}
+
+.leader-scroll {
+    overflow-y: auto;
+    max-height: 190px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold) transparent;
+}
+
+.leader-scroll::-webkit-scrollbar {
+    width: 3px;
+}
+.leader-scroll::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 3px;
+}
+
+.leader-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 6px;
+    margin-bottom: 4px;
+    background: rgba(13, 21, 39, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s ease;
+}
+
+.leader-row:hover {
+    border-color: var(--gold);
+    background: rgba(255, 215, 0, 0.12);
+    transform: translateX(-2px);
+}
+
+.leader-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 5px;
+    border: 1px solid var(--gold);
+    flex-shrink: 0;
+}
+
+.leader-name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10.5px;
+    color: #fff;
+}
+
+.leader-count {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--cyan);
+    background: rgba(0, 243, 255, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
 }
 
 /* Collapsible Detailed Stats Card (Popover) */
@@ -348,82 +432,6 @@ body {
     font-size: 8.5px;
     color: var(--text-muted);
     line-height: 1.2;
-}
-
-/* Collapsible Leaderboard Popover */
-.leader-popover {
-    position: fixed;
-    top: 58px;
-    right: 16px;
-    width: 260px;
-    max-height: 320px;
-    padding: 12px;
-    z-index: 110;
-    animation: pop-in 0.2s ease;
-}
-
-.popover-x {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 18px;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.popover-x:hover {
-    color: var(--cyan);
-}
-
-.leader-scroll {
-    overflow-y: auto;
-    max-height: 230px;
-    scrollbar-width: thin;
-}
-
-.leader-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    margin-bottom: 4px;
-    background: rgba(13, 21, 39, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 11.5px;
-    transition: all 0.15s ease;
-}
-
-.leader-row:hover {
-    border-color: var(--gold);
-    background: rgba(255, 215, 0, 0.08);
-}
-
-.leader-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin: 0 6px;
-    border: 1px solid var(--gold);
-}
-
-.leader-name {
-    flex-grow: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 11px;
-}
-
-.leader-count {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--cyan);
-    background: rgba(0, 243, 255, 0.1);
-    padding: 1px 5px;
-    border-radius: 4px;
 }
 
 /* Floating Navigation Controls (Bottom Right) */
@@ -1016,6 +1024,22 @@ body {
     to { opacity: 1; transform: scale(1); }
 }
 
+.live-pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+    margin-right: 4px;
+    box-shadow: 0 0 6px #10b981;
+    animation: live-blink 1.4s infinite ease-in-out;
+}
+
+@keyframes live-blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.85); }
+}
+
 .text-cyan { color: var(--cyan) !important; }
 .text-magenta { color: var(--magenta) !important; }
 .text-gold { color: var(--gold) !important; }
@@ -1037,6 +1061,12 @@ body {
     }
     #search-hud {
         display: none;
+    }
+    #leaderboard {
+        top: 50px;
+        right: 8px;
+        width: 190px;
+        max-height: 200px;
     }
     #add-btn {
         right: 120px;

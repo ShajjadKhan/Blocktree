@@ -1,4 +1,4 @@
-// BlockTree - Streamlined Minimal Matrix Engine
+// BlockTree - Matrix Engine with Permanent Live Leaderboard
 
 const canvasElem = document.getElementById("tree-canvas");
 const panzoom = Panzoom(canvasElem, {
@@ -167,7 +167,7 @@ document.getElementById('inspector-close').addEventListener('click', () => {
     document.getElementById('node-inspector').classList.add('d-none');
 });
 
-// UI Toggles (Stats popover & Leaderboard popover)
+// Telemetry Popover Toggle
 const toggleStatsBtn = document.getElementById('toggle-stats-btn');
 const detailedStatsCard = document.getElementById('detailed-stats-card');
 const statsChevron = document.getElementById('stats-chevron');
@@ -178,38 +178,16 @@ toggleStatsBtn.addEventListener('click', () => {
     if (isClosed) {
         detailedStatsCard.classList.remove('d-none');
         toggleStatsBtn.classList.add('open');
-        document.getElementById('leaderboard').classList.add('d-none');
     } else {
         detailedStatsCard.classList.add('d-none');
         toggleStatsBtn.classList.remove('open');
     }
 });
 
-const leaderboardToggleBtn = document.getElementById('leaderboard-toggle-btn');
-const leaderboardCard = document.getElementById('leaderboard');
-const leaderboardCloseBtn = document.getElementById('leaderboard-close-btn');
-
-leaderboardToggleBtn.addEventListener('click', () => {
-    playSound('click');
-    const isClosed = leaderboardCard.classList.contains('d-none');
-    if (isClosed) {
-        leaderboardCard.classList.remove('d-none');
-        detailedStatsCard.classList.add('d-none');
-        toggleStatsBtn.classList.remove('open');
-    } else {
-        leaderboardCard.classList.add('d-none');
-    }
-});
-
-leaderboardCloseBtn.addEventListener('click', () => {
-    leaderboardCard.classList.add('d-none');
-});
-
-// Close popovers when clicking on canvas
+// Close telemetry popover when clicking on canvas (Leaderboard stays permanently OPEN)
 canvasElem.addEventListener('click', () => {
     detailedStatsCard.classList.add('d-none');
     toggleStatsBtn.classList.remove('open');
-    leaderboardCard.classList.add('d-none');
 });
 
 // Load Matrix
@@ -270,11 +248,8 @@ async function loadMatrix(autoCenter = false) {
             addBtn.classList.remove('locked-btn');
         }
         
-        // 2. Populate Leaderboard
+        // 2. Populate Permanent Live Leaderboard (Always Visible)
         const leaderList = document.getElementById('leader-list');
-        const leaderBadge = document.getElementById('leader-count-badge');
-        leaderBadge.textContent = data.leaders ? data.leaders.length : 0;
-        
         if (!data.leaders || data.leaders.length === 0) {
             leaderList.innerHTML = '<div class="leader-loading">No referrals yet</div>';
         } else {
@@ -282,7 +257,7 @@ async function loadMatrix(autoCenter = false) {
             data.leaders.forEach((l, i) => {
                 const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `#${i+1}`));
                 html += `
-                    <div class="leader-row" onclick="focusNode(${l.id})">
+                    <div class="leader-row" onclick="focusNode(${l.id})" title="Click to view on matrix">
                         <span>${medal}</span>
                         <img class="leader-avatar" src="${l.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + l.name}" alt="">
                         <span class="leader-name">${l.name}</span>
@@ -589,12 +564,11 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('node-inspector').classList.add('d-none');
         detailedStatsCard.classList.add('d-none');
         toggleStatsBtn.classList.remove('open');
-        leaderboardCard.classList.add('d-none');
     }
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadMatrix(true);
     await checkUrlReferral();
-    setInterval(() => { loadMatrix(false); }, 30000);
+    setInterval(() => { loadMatrix(false); }, 20000);
 });

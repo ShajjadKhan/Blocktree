@@ -44,19 +44,23 @@
 
         <!-- Top Right Action Controls -->
         <div class="top-right-group">
-            <!-- Leaderboard Toggle Button -->
-            <button id="leaderboard-toggle-btn" class="hud-glass pill-btn" title="Top Sponsors">
-                <i class="bi bi-trophy-fill text-gold"></i>
-                <span class="d-none d-sm-inline">Leaders</span>
-                <span class="badge-mini-gold" id="leader-count-badge">0</span>
-            </button>
-
             <!-- Audio Toggle -->
             <button id="audio-toggle" class="hud-glass pill-icon-btn" title="Toggle Sound Effects">
                 <i class="bi bi-volume-up-fill text-cyan" id="audio-icon"></i>
             </button>
         </div>
     </header>
+
+    <!-- Permanent Live Leaderboard (Always Visible for Real-Time Scores) -->
+    <div id="leaderboard" class="hud-glass">
+        <div class="leader-header">
+            <span class="brand-title"><i class="bi bi-trophy-fill text-gold"></i> TOP SPONSORS</span>
+            <span class="leader-live-tag"><span class="live-dot-gold"></span>LIVE</span>
+        </div>
+        <div id="leader-list" class="leader-scroll">
+            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading...</div>
+        </div>
+    </div>
 
     <!-- Collapsible Detailed Telemetry Popover (Only shows when clicking chevron) -->
     <div id="detailed-stats-card" class="hud-glass stats-popover d-none">
@@ -94,17 +98,6 @@
         </div>
     </div>
 
-    <!-- Collapsible Leaderboard Popover (Only shows when clicking Leaders) -->
-    <div id="leaderboard" class="hud-glass leader-popover d-none">
-        <div class="popover-header">
-            <span class="brand-title"><i class="bi bi-trophy-fill text-gold"></i> TOP SPONSORS</span>
-            <button id="leaderboard-close-btn" class="popover-x">&times;</button>
-        </div>
-        <div id="leader-list" class="leader-scroll">
-            <div class="leader-loading"><i class="bi bi-arrow-repeat spin"></i> Loading...</div>
-        </div>
-    </div>
-
     <!-- Floating Canvas Controls (Bottom Right) -->
     <div id="controls-panel" class="hud-glass">
         <button id="ctrl-zoom-in" title="Zoom In"><i class="bi bi-plus-lg"></i></button>
@@ -118,7 +111,7 @@
         <span id="add-btn-text">JOIN MATRIX</span>
     </button>
 
-    <!-- Compact Sleek Node Inspector (Appears unobtrusively when clicking any node) -->
+    <!-- Compact Sleek Node Inspector (Appears when clicking any node) -->
     <div id="node-inspector" class="compact-inspector hud-glass d-none">
         <div class="compact-insp-head">
             <div class="compact-profile-row">
