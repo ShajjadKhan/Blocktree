@@ -374,9 +374,9 @@ def init_db():
 init_db()
 
 CARD_WIDTH = 270
-CARD_HEIGHT = 200
+CARD_HEIGHT = 280
 MIN_DIST_X = 350  # 270px card + 80px clean visual clearance
-MIN_DIST_Y = 340  # card height + generous gap
+MIN_DIST_Y = 360  # card height with photo cover + generous gap
 SPACING = 360     # slot spacing between sibling replies
 
 def calculate_node_coordinates(c, parent_id, exclude_node_id=None):
@@ -1378,7 +1378,7 @@ def handle_nodes():
 
         # Photo Attachment check: Use the exact user photo provided
         if not cover_image:
-            cover_image = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"
+            cover_image = None
 
         nx, ny = calculate_node_coordinates(c, parent_id)
         ref_code = secrets.token_hex(4)
@@ -1616,7 +1616,7 @@ def get_node_details(node_id):
         return jsonify({"error": f"This article has been revoked by editorial moderation ({row['revoked_reason'] or 'Community standards'})."}), 404
 
     c.execute('''
-        SELECT id, name, title, category, text, read_time, claps, image, created_at, is_verified_author
+        SELECT id, name, title, category, text, read_time, claps, image, cover_image, created_at, is_verified_author
         FROM nodes
         WHERE parent_id = ? AND is_revoked = 0
         ORDER BY id ASC

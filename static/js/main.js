@@ -481,7 +481,7 @@ async function loadMatrix(autoCenter = false) {
 
         // 6. Layout Safety Pass: Guarantee zero card collisions on canvas
         const CARD_MIN_W = 340;
-        const CARD_MIN_H = 260;
+        const CARD_MIN_H = 340;
         const placed = [];
         
         currentNodes.forEach(node => {
@@ -533,12 +533,24 @@ async function loadMatrix(autoCenter = false) {
             // Verified author checkmark
             const verifiedHtml = node.is_verified_author ? `<i class="bi bi-patch-check-fill text-cyan" title="Verified Author" style="font-size: 10px; margin-left: 2px;"></i>` : '';
             
+            // Attached Photo Cover preview on block card (Viewable from Outside)
+            let coverPhotoHtml = '';
+            if (node.cover_image && node.cover_image.trim()) {
+                coverPhotoHtml = `
+                    <div class="card-cover-wrap">
+                        <img src="${escapeHtml(node.cover_image)}" class="card-cover-img" alt="${escapeHtml(node.title)}" loading="lazy" onerror="this.closest('.card-cover-wrap').style.display='none';">
+                    </div>
+                `;
+            }
+
             card.innerHTML = `
                 <div class="card-top-row">
                     <span class="badge-cat ${catClass}">${node.category}</span>
                     <span class="card-read-time">${node.read_time}</span>
                 </div>
                 
+                ${coverPhotoHtml}
+
                 <h3 class="card-headline">${node.title}</h3>
                 <p class="card-excerpt">${node.text}</p>
                 
@@ -706,7 +718,14 @@ async function openReader(nodeId) {
         
         // EXACT ATTACHED COVER PHOTO
         const coverImg = document.getElementById('reader-cover-img');
-        coverImg.src = node.cover_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+        const heroWrap = coverImg ? coverImg.closest('.reader-hero') : null;
+        if (node.cover_image && node.cover_image.trim()) {
+            coverImg.src = node.cover_image;
+            if (heroWrap) heroWrap.style.display = 'block';
+        } else {
+            coverImg.src = '';
+            if (heroWrap) heroWrap.style.display = 'none';
+        }
         
         document.getElementById('reader-quick-claps').textContent = node.claps || 0;
         document.getElementById('reader-quick-replies').textContent = node.reply_count || 0;
@@ -777,12 +796,22 @@ async function openReader(nodeId) {
         } else {
             let rHtml = '';
             replies.forEach(r => {
+                let replyCoverHtml = '';
+                if (r.cover_image && r.cover_image.trim()) {
+                    replyCoverHtml = `
+                        <div class="reply-card-cover-wrap">
+                            <img src="${escapeHtml(r.cover_image)}" class="reply-card-cover-img" alt="" loading="lazy" onerror="this.closest('.reply-card-cover-wrap').style.display='none';">
+                        </div>
+                    `;
+                }
+
                 rHtml += `
                     <div class="branch-reply-card" onclick="openReader(${r.id}); focusNode(${r.id})">
                         <div class="reply-card-top">
                             <span class="badge-cat ${getCategoryClass(r.category)}">${r.category}</span>
                             <span class="text-gold"><i class="bi bi-heart-fill"></i> ${r.claps}</span>
                         </div>
+                        ${replyCoverHtml}
                         <h4 class="reply-card-title">${r.title}</h4>
                         <p class="reply-card-snippet">${r.text}</p>
                         <div class="reply-card-footer">
@@ -971,6 +1000,64 @@ btnRemovePhoto.addEventListener('click', () => {
     photoPreviewWrap.classList.add('d-none');
     if (photoPillLabel) photoPillLabel.textContent = "Cover";
     if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove("active");
+});
+
+// Drag & Drop + Click-to-Browse on Photo Drop Zone
+if (fileDropZone) {
+    fileDropZone.addEventListener('click', (e) => {
+        if (e.target !== composerFileInput) composerFileInput.click();
+    });
+    fileDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.add('drag-over');
+    });
+    fileDropZone.addEventListener('dragleave', () => {
+        fileDropZone.classList.remove('drag-over');
+    });
+    fileDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+            composerFileInput.files = e.dataTransfer.files;
+            composerFileInput.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+// Clipboard Paste Image Support in Composer
+document.addEventListener('paste', async (e) => {
+    const composerModal = document.getElementById('composer-modal');
+    if (!composerModal || composerModal.classList.contains('d-none')) return;
+    const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData) || {}).items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    composerPreviewImg.src = ev.target.result;
+                    previewFilename.textContent = 'Pasted_Screenshot.png';
+                    photoPreviewWrap.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+
+                const fd = new FormData();
+                fd.append('file', file, 'pasted_screenshot.png');
+                try {
+                    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (res.ok && data.url) {
+                        formFinalCover.value = data.url;
+                        if (photoPillLabel) photoPillLabel.textContent = "Cover ✓";
+                        if (btnTogglePhotoTray) btnTogglePhotoTray.classList.add("active");
+                        showToast("Pasted image attached as cover!");
+                    }
+                } catch (err) {}
+            }
+            break;
+        }
+    }
 });
 
 // Series Toggle & Compact Tray System
@@ -1761,12 +1848,21 @@ async function openAuthorDrawer(authorId) {
         } else {
             let aHtml = '';
             data.standalone_articles.forEach(art => {
+                let artCoverHtml = '';
+                if (art.cover_image && art.cover_image.trim()) {
+                    artCoverHtml = `
+                        <div class="reply-card-cover-wrap">
+                            <img src="${escapeHtml(art.cover_image)}" class="reply-card-cover-img" alt="" loading="lazy" onerror="this.closest('.reply-card-cover-wrap').style.display='none';">
+                        </div>
+                    `;
+                }
                 aHtml += `
                     <div class="branch-reply-card" onclick="openReader(${art.id}); focusNode(${art.id})">
                         <div class="reply-card-top">
                             <span class="badge-cat ${getCategoryClass(art.category)}">${art.category}</span>
                             <span class="text-gold"><i class="bi bi-heart-fill"></i> ${art.claps}</span>
                         </div>
+                        ${artCoverHtml}
                         <h4 class="reply-card-title">${art.title}</h4>
                         <p class="reply-card-snippet">${art.text}</p>
                     </div>
@@ -1871,15 +1967,21 @@ function renderSearchSuggestions() {
             const seriesTag = m.series_title ? '<span class="text-gold"><i class="bi bi-collection"></i> ' + escapeHtml(m.series_title) + '</span> • ' : '';
             const verifiedBadge = m.is_verified_author ? '<i class="bi bi-patch-check-fill text-cyan" style="font-size: 9px;"></i>' : '';
             const highlightedTitle = highlightSearchTerm(m.title, q);
+            const coverThumb = m.cover_image && m.cover_image.trim() ? `<img src="${escapeHtml(m.cover_image)}" class="search-item-thumb" alt="" loading="lazy" onerror="this.style.display='none'">` : '';
             html += `
                 <div class="search-item" onclick="selectSearchNode(${m.id})">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
-                        <span class="search-item-title">${highlightedTitle}</span>
-                        <span class="badge-cat ${getCategoryClass(m.category)}" style="font-size: 8.5px; padding: 1px 5px;">${m.category}</span>
-                    </div>
-                    <div class="search-item-meta">
-                        <span>${seriesTag}by @${escapeHtml(m.name)} ${verifiedBadge}</span>
-                        <span class="text-gold"><i class="bi bi-heart-fill text-magenta"></i> ${m.claps || 0} • ${m.read_time || '2 min'}</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        ${coverThumb}
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <span class="search-item-title">${highlightedTitle}</span>
+                                <span class="badge-cat ${getCategoryClass(m.category)}" style="font-size: 8.5px; padding: 1px 5px;">${m.category}</span>
+                            </div>
+                            <div class="search-item-meta">
+                                <span>${seriesTag}by @${escapeHtml(m.name)} ${verifiedBadge}</span>
+                                <span class="text-gold"><i class="bi bi-heart-fill text-magenta"></i> ${m.claps || 0} • ${m.read_time || '2 min'}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -2530,6 +2632,15 @@ function renderStreamFeed() {
             `;
         }
 
+        let streamCoverHtml = '';
+        if (n.cover_image && n.cover_image.trim()) {
+            streamCoverHtml = `
+                <div class="stream-cover-wrap">
+                    <img src="${escapeHtml(n.cover_image)}" class="stream-cover-img" alt="${escapeHtml(n.title)}" loading="lazy" onerror="this.closest('.stream-cover-wrap').style.display='none';">
+                </div>
+            `;
+        }
+
         html += `
             <article class="stream-card" data-id="${n.id}" onclick="openReader(${n.id})">
                 <div class="stream-card-top">
@@ -2544,9 +2655,14 @@ function renderStreamFeed() {
                     </div>
                 </div>
 
-                <h3 class="stream-card-title">${escapeHtml(n.title)}</h3>
-                <p class="stream-card-excerpt">${escapeHtml(n.text || '')}</p>
-                ${lineageHtml}
+                <div class="stream-card-content-row">
+                    <div class="stream-card-text-col">
+                        <h3 class="stream-card-title">${escapeHtml(n.title)}</h3>
+                        <p class="stream-card-excerpt">${escapeHtml(n.text || '')}</p>
+                        ${lineageHtml}
+                    </div>
+                    ${streamCoverHtml}
+                </div>
 
                 <div class="stream-card-bottom" onclick="event.stopPropagation();">
                     <div class="stream-author-block" onclick="openAuthorDrawer(${n.author_id || 1});" style="cursor: pointer;">
