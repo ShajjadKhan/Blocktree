@@ -17,7 +17,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'blocktree-cyber-editorial-secret-2026')
+app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 DB_PATH = 'grid_data.db'
@@ -1349,7 +1349,7 @@ def handle_nodes():
             c.execute("SELECT * FROM authors WHERE id = ?", (author_id,))
             author_row = c.fetchone()
             if author_row:
-                name = author_row['pen_name']
+                name = html.escape(author_row['pen_name'])
                 raw_image = author_row['avatar']
                 is_verified_author = author_row['is_verified']
             else:
@@ -1793,6 +1793,7 @@ def admin_get_audit_logs():
 # SEED DEMO KNOWLEDGE MATRIX
 # -------------------------------------------------------------
 @app.route('/api/seed-demo', methods=['POST'])
+@admin_required
 def seed_demo_matrix():
     """Populate matrix with rich curated sample discourse branches for live exploration."""
     conn = get_db()
@@ -1943,6 +1944,7 @@ def seed_demo_matrix():
     return jsonify({"status": "success", "message": "Demo knowledge matrix seeded successfully with 7 connected branches!"})
 
 @app.route('/api/reset-blank', methods=['POST'])
+@admin_required
 def reset_blank_matrix():
     """Reset the nodes database back to 0 (pristine production state)."""
     conn = get_db()

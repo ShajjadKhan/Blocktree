@@ -5,3 +5,4 @@ grid_data.db
 *.log
 static/uploads/*
 backups/
+.secret_key

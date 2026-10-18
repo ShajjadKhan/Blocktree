@@ -82,6 +82,14 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
+// Sanitized markdown renderer for user-authored content (DOMPurify anti-XSS guard)
+function renderMarkdownSafe(md) {
+    const raw = String(md || '');
+    if (typeof marked === 'undefined') return escapeHtml(raw);
+    const html = marked.parse(raw);
+    return (typeof DOMPurify !== 'undefined') ? DOMPurify.sanitize(html) : escapeHtml(raw);
+}
+
 const canvasElem = document.getElementById("tree-canvas");
 const panzoom = Panzoom(canvasElem, {
     maxScale: 3.5,
@@ -523,9 +531,9 @@ async function loadMatrix(autoCenter = false) {
             let seriesBadgeHtml = '';
             if (node.series_title) {
                 seriesBadgeHtml = `
-                    <div class="card-series-tag" title="Part ${node.series_part || 1} of ${node.series_title}">
+                    <div class="card-series-tag" title="Part ${node.series_part || 1} of ${escapeHtml(node.series_title)}">
                         <i class="bi bi-collection-fill text-gold"></i>
-                        <span>Series: <strong>${node.series_title}</strong> • Part ${node.series_part || 1}</span>
+                        <span>Series: <strong>${escapeHtml(node.series_title)}</strong> • Part ${node.series_part || 1}</span>
                     </div>
                 `;
             }
@@ -559,7 +567,7 @@ async function loadMatrix(autoCenter = false) {
                 
                 <div class="card-bottom-row">
                     <div class="card-author-info">
-                        <img src="${node.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + node.name}" class="card-avatar" alt="">
+                        <img src="${escapeHtml(node.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + node.name)}" class="card-avatar" alt="">
                         <span class="card-author-name">${node.name}${verifiedHtml}</span>
                     </div>
                     
@@ -775,9 +783,9 @@ async function openReader(nodeId) {
         // Render Markdown Body
         const bodyElem = document.getElementById('reader-content-body');
         if (typeof marked !== 'undefined' && node.content) {
-            bodyElem.innerHTML = marked.parse(node.content);
+            bodyElem.innerHTML = renderMarkdownSafe(node.content);
         } else {
-            bodyElem.innerHTML = `<p>${node.content || node.text}</p>`;
+            bodyElem.innerHTML = `<p>${escapeHtml(node.content || node.text || '')}</p>`;
         }
         
         // Render Direct Branch Replies
@@ -1176,9 +1184,9 @@ function updateLiveStats() {
     // Live preview update
     if (livePreviewPane && !livePreviewPane.classList.contains('d-none') && previewBody) {
         if (typeof marked !== 'undefined') {
-            previewBody.innerHTML = marked.parse(text || '*Preview your formatted story here...*');
+            previewBody.innerHTML = renderMarkdownSafe(text || '*Preview your formatted story here...*');
         } else {
-            previewBody.innerHTML = `<p>${text}</p>`;
+            previewBody.innerHTML = `<p>${escapeHtml(text)}</p>`;
         }
     }
 }
@@ -2666,7 +2674,7 @@ function renderStreamFeed() {
 
                 <div class="stream-card-bottom" onclick="event.stopPropagation();">
                     <div class="stream-author-block" onclick="openAuthorDrawer(${n.author_id || 1});" style="cursor: pointer;">
-                        <img src="${n.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.name}" class="stream-avatar" alt="">
+                        <img src="${escapeHtml(n.image || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + n.name)}" class="stream-avatar" alt="">
                         <span class="stream-author-name">${escapeHtml(n.name)} ${verifiedHtml}</span>
                     </div>
 
@@ -2742,7 +2750,7 @@ async function triggerSeedDemo() {
         btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Seeding Matrix...';
     }
     try {
-        const res = await fetch('/api/seed-demo', { method: 'POST' });
+        const res = await fetch('/api/seed-demo', { method: 'POST', headers: { 'X-CSRF-Token': adminCsrfToken } });
         const data = await res.json();
         if (data.status === 'success') {
             closeGuideModal();
@@ -2768,7 +2776,7 @@ async function triggerResetBlank() {
     }
     playSound('click');
     try {
-        const res = await fetch('/api/reset-blank', { method: 'POST' });
+        const res = await fetch('/api/reset-blank', { method: 'POST', headers: { 'X-CSRF-Token': adminCsrfToken } });
         const data = await res.json();
         if (data.status === 'success') {
             closeGuideModal();
@@ -3302,7 +3310,7 @@ function renderAdminArticlesTable() {
         rowsHtml += `
             <tr class="${isRevoked ? 'revoked-row' : ''}">
                 <td style="font-family: var(--font-mono); font-weight: bold; color: var(--cyan);">#${node.id}</td>
-                <td><img src="${coverImg}" class="table-cover-thumb" alt=""></td>
+                <td><img src="${escapeHtml(coverImg)}" class="table-cover-thumb" alt=""></td>
                 <td>
                     <div style="font-weight: 600; color: #fff; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(node.title || 'Untitled')}</div>
                     ${seriesInfo}
@@ -3316,7 +3324,7 @@ function renderAdminArticlesTable() {
                 <td style="font-family: var(--font-mono); color: var(--gold);"><i class="bi bi-heart-fill text-magenta"></i> ${node.claps || 0}</td>
                 <td>
                     <div style="font-size: 9.5px; font-family: var(--font-mono);">${node.created_at ? node.created_at.substring(0, 10) : 'Recent'}</div>
-                    <div style="font-size: 8.5px; color: var(--text-muted); font-family: var(--font-mono);">${node.ip || '127.0.0.1'}</div>
+                    <div style="font-size: 8.5px; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(node.ip || '127.0.0.1')}</div>
                 </td>
                 <td>${statusBadge}</td>
                 <td style="text-align: right; white-space: nowrap;">${actionButtons}</td>
@@ -3367,7 +3375,7 @@ function renderAdminAuthorsTable() {
         rowsHtml += `
             <tr class="${isBanned ? 'revoked-row' : ''}">
                 <td style="font-family: var(--font-mono); color: var(--gold);">#${auth.id}</td>
-                <td><img src="${avatarUrl}" style="width: 28px; height: 28px; border-radius: 50%;" alt=""></td>
+                <td><img src="${escapeHtml(avatarUrl)}" style="width: 28px; height: 28px; border-radius: 50%;" alt=""></td>
                 <td>
                     <div style="font-weight: 600; color: #fff;">${escapeHtml(auth.pen_name)}</div>
                     <div style="font-size: 9px; color: var(--cyan);">@${escapeHtml(auth.username)}</div>
@@ -3421,7 +3429,7 @@ window.adminPreviewPost = (nodeId) => {
     if (!bodyEl) return;
 
     const isRevoked = Boolean(node.is_revoked);
-    const coverHtml = node.cover_image ? `<img src="${node.cover_image}" style="width: 100%; max-height: 240px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;" alt="">` : '';
+    const coverHtml = node.cover_image ? `<img src="${escapeHtml(node.cover_image)}" style="width: 100%; max-height: 240px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;" alt="">` : '';
 
     bodyEl.innerHTML = `
         ${coverHtml}
@@ -3432,11 +3440,11 @@ window.adminPreviewPost = (nodeId) => {
         <h2 style="font-size: 18px; color: #fff; margin: 4px 0 10px 0;">${escapeHtml(node.title)}</h2>
         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px;">
             <div><strong>Creator:</strong> ${escapeHtml(node.name || 'Anonymous')} (@${escapeHtml(node.author_username || 'guest')})</div>
-            <div><strong>Client IP:</strong> <code style="color: var(--cyan);">${node.ip || '127.0.0.1'}</code></div>
+            <div><strong>Client IP:</strong> <code style="color: var(--cyan);">${escapeHtml(node.ip || '127.0.0.1')}</code></div>
             <div><strong>Status:</strong> ${isRevoked ? '<span class="text-danger">REVOKED (' + escapeHtml(node.revoked_reason || 'Inappropriate content') + ')</span>' : '<span class="text-green">LIVE ON MATRIX</span>'}</div>
         </div>
         <div style="font-size: 12.5px; line-height: 1.6; color: rgba(255,255,255,0.9); max-height: 260px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
-            ${node.content ? marked.parse(node.content) : escapeHtml(node.text || '')}
+            ${node.content ? renderMarkdownSafe(node.content) : escapeHtml(node.text || '')}
         </div>
     `;
 
