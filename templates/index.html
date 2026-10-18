@@ -445,12 +445,6 @@
                     <i class="bi bi-image text-cyan"></i>
                     <span id="photo-pill-label">Cover</span>
                 </button>
-
-                <!-- Toggle Series Collection Tray Pill Button -->
-                <button type="button" id="btn-toggle-series-tray" class="meta-pill meta-pill-btn" title="Add to Series Collection">
-                    <i class="bi bi-collection-fill text-gold"></i>
-                    <span id="series-pill-label">Series</span>
-                </button>
             </div>
 
             <!-- Collapsible Photo Attachment Tray -->
@@ -495,32 +489,7 @@
                 </div>
             </div>
 
-            <!-- Collapsible Series Tray -->
-            <div id="composer-series-tray" class="composer-collapsible-tray d-none">
-                <div class="series-attach-box-compact">
-                    <div class="series-checkbox-row d-none">
-                        <label class="custom-checkbox">
-                            <input type="checkbox" id="form-is-series">
-                            <span class="checkmark"></span>
-                            <span class="cb-label">Series Mode</span>
-                        </label>
-                    </div>
-                    <div id="series-inputs-panel" class="series-inputs-panel-compact">
-                        <div class="series-inline-row">
-                            <div class="series-field-group series-title-group">
-                                <label class="tray-label"><i class="bi bi-collection-fill text-gold"></i> Series Name:</label>
-                                <input type="text" id="form-series-title" placeholder="e.g. The Spatial Matrix Papers" list="existing-series-datalist" class="cyber-input">
-                                <datalist id="existing-series-datalist"></datalist>
-                            </div>
-                            <div class="series-field-group series-part-group">
-                                <label class="tray-label">Part #:</label>
-                                <input type="number" id="form-series-part" min="1" max="99" value="1" class="cyber-input">
-                            </div>
-                            <button type="button" id="btn-close-series-tray" class="tray-close-btn align-self-end mb-1" title="Close series options">&times;</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Collapsible Series Tray removed -->
 
             <div class="word-editor-container">
                 <div class="word-toolbar hud-glass">

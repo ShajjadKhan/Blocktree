@@ -343,12 +343,6 @@ async function checkAuth() {
             
             document.getElementById('nav-user-avatar').src = currentAuthor.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentAuthor.username;
             document.getElementById('nav-user-name').textContent = currentAuthor.pen_name;
-            
-            // Populate series datalist in composer
-            const datalist = document.getElementById('existing-series-datalist');
-            if (currentAuthor.series && currentAuthor.series.length > 0) {
-                datalist.innerHTML = currentAuthor.series.map(s => `<option value="${s}">`).join('');
-            }
         } else {
             currentAuthor = null;
             loggedOutGroup.classList.remove('d-none');
@@ -1068,72 +1062,6 @@ document.addEventListener('paste', async (e) => {
     }
 });
 
-// Series Toggle & Compact Tray System
-const formIsSeries = document.getElementById('form-is-series');
-const seriesInputsPanel = document.getElementById('series-inputs-panel');
-const btnToggleSeriesTray = document.getElementById('btn-toggle-series-tray');
-const composerSeriesTray = document.getElementById('composer-series-tray');
-const btnCloseSeriesTray = document.getElementById('btn-close-series-tray');
-const seriesPillLabel = document.getElementById('series-pill-label');
-const formSeriesTitle = document.getElementById('form-series-title');
-const formSeriesPart = document.getElementById('form-series-part');
-
-if (btnToggleSeriesTray && composerSeriesTray) {
-    btnToggleSeriesTray.addEventListener('click', () => {
-        const isOpening = composerSeriesTray.classList.contains('d-none');
-        composerSeriesTray.classList.toggle('d-none');
-        if (isOpening) {
-            if (formIsSeries) formIsSeries.checked = true;
-            if (formSeriesTitle) formSeriesTitle.focus();
-        }
-    });
-}
-
-if (btnCloseSeriesTray && composerSeriesTray) {
-    btnCloseSeriesTray.addEventListener('click', () => {
-        composerSeriesTray.classList.add('d-none');
-        if (formSeriesTitle && !formSeriesTitle.value.trim()) {
-            if (formIsSeries) formIsSeries.checked = false;
-            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
-            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
-        }
-    });
-}
-
-if (formSeriesTitle) {
-    formSeriesTitle.addEventListener('input', () => {
-        const val = formSeriesTitle.value.trim();
-        if (val) {
-            if (formIsSeries) formIsSeries.checked = true;
-            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.add('series-active');
-            const part = (formSeriesPart && formSeriesPart.value) ? formSeriesPart.value : '1';
-            if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
-        } else {
-            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
-            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
-        }
-    });
-}
-
-if (formSeriesPart) {
-    formSeriesPart.addEventListener('input', () => {
-        if (formSeriesTitle && formSeriesTitle.value.trim()) {
-            const part = formSeriesPart.value || '1';
-            if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
-        }
-    });
-}
-
-if (formIsSeries) {
-    formIsSeries.addEventListener('change', () => {
-        if (formIsSeries.checked) {
-            if (seriesInputsPanel) seriesInputsPanel.classList.remove('d-none');
-        } else {
-            if (seriesInputsPanel) seriesInputsPanel.classList.add('d-none');
-        }
-    });
-}
-
 // ==========================================================================
 // Microsoft Word Studio Mode & Formatting Toolbar System
 // ==========================================================================
@@ -1476,7 +1404,6 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
     
     // Collapse trays by default to maximize article body space
     if (composerPhotoTray) composerPhotoTray.classList.add('d-none');
-    if (composerSeriesTray) composerSeriesTray.classList.add('d-none');
     
     // Sync Cover pill state
     if (formFinalCover && formFinalCover.value) {
@@ -1485,16 +1412,6 @@ function openComposer(parentId = null, parentTitle = null, parentAuthor = null) 
     } else {
         if (photoPillLabel) photoPillLabel.textContent = 'Cover';
         if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove('active');
-    }
-
-    // Sync Series pill state
-    if (formSeriesTitle && formSeriesTitle.value.trim()) {
-        if (btnToggleSeriesTray) btnToggleSeriesTray.classList.add('series-active');
-        const part = (formSeriesPart && formSeriesPart.value) ? formSeriesPart.value : '1';
-        if (seriesPillLabel) seriesPillLabel.textContent = `Part ${part} ✓`;
-    } else {
-        if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
-        if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
     }
 
     overlay.style.display = 'block';
@@ -1583,11 +1500,6 @@ form.addEventListener('submit', async (e) => {
     const content = document.getElementById('form-content').value.trim();
     const coverImage = formFinalCover.value.trim();
     
-    // Series fields
-    const isSeries = formIsSeries.checked;
-    const seriesTitle = isSeries ? document.getElementById('form-series-title').value.trim() : '';
-    const seriesPart = isSeries ? parseInt(document.getElementById('form-series-part').value) || 1 : null;
-    
     if (!title || !content) {
         showToast("Please provide both a Title and Article Content!", true);
         return;
@@ -1604,9 +1516,7 @@ form.addEventListener('submit', async (e) => {
             category: category,
             content: content,
             parent_id: parentId,
-            cover_image: coverImage,
-            series_title: seriesTitle,
-            series_part: seriesPart
+            cover_image: coverImage
         };
         
         const res = await fetch('/api/nodes', {
@@ -1624,10 +1534,7 @@ form.addEventListener('submit', async (e) => {
             form.reset();
             if (photoPillLabel) photoPillLabel.textContent = 'Cover';
             if (btnTogglePhotoTray) btnTogglePhotoTray.classList.remove('active');
-            if (seriesPillLabel) seriesPillLabel.textContent = 'Series';
-            if (btnToggleSeriesTray) btnToggleSeriesTray.classList.remove('series-active');
             if (composerPhotoTray) composerPhotoTray.classList.add('d-none');
-            if (composerSeriesTray) composerSeriesTray.classList.add('d-none');
             btnRemovePhoto.click();
             
             await loadMatrix(false);
